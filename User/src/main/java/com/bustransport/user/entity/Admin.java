@@ -1,4 +1,4 @@
-package com.bustransport.user;
+package com.bustransport.user.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
