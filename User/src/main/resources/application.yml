@@ -7,12 +7,16 @@ spring:
   application:
     name: user-service
 
-  # Database Configuration
+  # Database Configuration (works with Docker Compose)
   datasource:
-    url: jdbc:postgresql://localhost:5432/user_db
-    username: postgres
-    password: postgres
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/user_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
 
   # JPA Configuration
   jpa:
@@ -23,6 +27,9 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
     open-in-view: false
 
   # Security
@@ -33,9 +40,9 @@ spring:
 
 # JWT Configuration
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expiration: 86400000 # 24 hours in milliseconds
-  refresh-expiration: 604800000 # 7 days
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+  expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000} # 7 days
 
 # Logging
 logging:
@@ -43,8 +50,11 @@ logging:
     com.bustransport.user: DEBUG
     org.springframework.security: DEBUG
     org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+  file:
+    name: logs/user-service.log
 
 # Actuator
 management:
@@ -55,6 +65,9 @@ management:
   endpoint:
     health:
       show-details: always
+  health:
+    db:
+      enabled: true
 
 # Swagger/OpenAPI
 springdoc:
@@ -63,3 +76,5 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     enabled: true
+    tags-sorter: alpha
+    operations-sorter: alpha

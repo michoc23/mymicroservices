@@ -2,7 +2,6 @@ package com.bustransport.user.service;
 
 import com.bustransport.user.dto.DriverResponse;
 import com.bustransport.user.entity.Driver;
-import com.bustransport.user.entity.DriverStatus;
 import com.bustransport.user.exception.ResourceNotFoundException;
 import com.bustransport.user.repository.DriverRepository;
 import lombok.RequiredArgsConstructor;
