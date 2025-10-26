@@ -2,6 +2,7 @@ package com.bustransport.user.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -25,13 +26,13 @@ public class Driver extends User {
     private LocalDate hireDate;
 
     @Column(name = "bus_id")
-    private Long busId;  // Reference to the bus they drive
+    private Long busId;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private DriverStatus status = DriverStatus.AVAILABLE;
 
-    // Business methods from class diagram
     public void startShift() {
         this.status = DriverStatus.ON_DUTY;
     }
