@@ -1,0 +1,7 @@
+/home/ayoub/mymicroservices/api-gateway/src/main/java/com/bustransport/gateway/util/JwtUtil.java
+/home/ayoub/mymicroservices/api-gateway/src/main/java/com/bustransport/gateway/GatewayApplication.java
+/home/ayoub/mymicroservices/api-gateway/src/main/java/com/bustransport/gateway/filter/JwtAuthenticationFilter.java
+/home/ayoub/mymicroservices/api-gateway/src/main/java/com/bustransport/gateway/exception/GlobalErrorWebExceptionHandler.java
+/home/ayoub/mymicroservices/api-gateway/src/main/java/com/bustransport/gateway/config/GatewayConfig.java
+/home/ayoub/mymicroservices/api-gateway/src/main/java/com/bustransport/gateway/filter/LoggingFilter.java
+/home/ayoub/mymicroservices/api-gateway/src/main/java/com/bustransport/gateway/controller/FallbackController.java

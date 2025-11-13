@@ -1,7 +1,11 @@
-version: '3.8'
+# Main Docker Compose - Orchestrates all microservices
+# Run: docker-compose up -d
+# Stop: docker-compose down
 
 services:
-  # PostgreSQL Database
+  # ========== Infrastructure Services ==========
+
+  # PostgreSQL Database for User Service
   postgres:
     image: postgres:15-alpine
     container_name: user-service-postgres
@@ -12,21 +16,60 @@ services:
       POSTGRES_PASSWORD: postgres
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "5432:5432"
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - user-service-network
+      - microservices-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # PostgreSQL Database for Ticket Service
+  postgres-ticket:
+    image: postgres:15-alpine
+    container_name: ticket-service-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ticket_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres_ticket_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for API Gateway Rate Limiting
+  redis:
+    image: redis:7-alpine
+    container_name: redis-server
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
   # pgAdmin - PostgreSQL Web Interface
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: user-service-pgadmin
+    container_name: pgadmin
     restart: unless-stopped
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
@@ -34,40 +77,105 @@ services:
       PGADMIN_CONFIG_SERVER_MODE: 'False'
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
     ports:
-      - "5050:80"
+      - "5051:80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     networks:
-      - user-service-network
+      - microservices-network
     depends_on:
       - postgres
+      - postgres-ticket
 
-  # User Service Application (Optional - uncomment to run the app)
-  # user-service:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: user-service-app
-  #   restart: unless-stopped
-  #   environment:
-  #     SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_db
-  #     SPRING_DATASOURCE_USERNAME: postgres
-  #     SPRING_DATASOURCE_PASSWORD: postgres
-  #     JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  #   ports:
-  #     - "8081:8081"
-  #   networks:
-  #     - user-service-network
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
+  # ========== Microservices ==========
+
+  # User Service
+  user-service:
+    build:
+      context: .
+      dockerfile: User/Dockerfile
+    container_name: user-service-app
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    ports:
+      - "8081:8081"
+    networks:
+      - microservices-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/api/v1/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 40s
+      retries: 3
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    container_name: api-gateway
+    restart: unless-stopped
+    environment:
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    ports:
+      - "8082:8082"
+    networks:
+      - microservices-network
+    depends_on:
+      redis:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 60s
+      retries: 3
+
+  # Ticket Service
+  ticket-service:
+    build:
+      context: .
+      dockerfile: Ticket/Dockerfile
+    container_name: ticket-service-app
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-ticket:5432/ticket_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    ports:
+      - "8083:8083"
+    networks:
+      - microservices-network
+    depends_on:
+      postgres-ticket:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 60s
+      retries: 3
 
 networks:
-  user-service-network:
+  microservices-network:
     driver: bridge
 
 volumes:
   postgres_data:
     driver: local
+  postgres_ticket_data:
+    driver: local
   pgadmin_data:
+    driver: local
+  redis_data:
     driver: local
