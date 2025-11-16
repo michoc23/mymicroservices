@@ -3,12 +3,33 @@ import { toast } from 'react-toastify';
 
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: 'http://localhost:8081/api/v1', // Direct to User Service for now
+  baseURL: '/api/v1', // Use API Gateway proxy
+  timeout: 3000, // Reduced timeout for faster failure
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Fallback API instance for direct service calls when needed
+export const directUserAPI = axios.create({
+  baseURL: 'http://localhost:8081/api/v1',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+// Setup interceptors for direct API as well
+directUserAPI.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 // Request interceptor to add auth token
 api.interceptors.request.use(

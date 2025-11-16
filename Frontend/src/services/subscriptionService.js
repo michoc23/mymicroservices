@@ -1,9 +1,12 @@
 import api from './api';
 
+// Create subscription API instance pointing to port 8084
+const subscriptionAPI = api;
+
 class SubscriptionService {
   // Get all subscriptions for current user
   async getUserSubscriptions(userId, page = 0, size = 10) {
-    const response = await api.get(`/subscriptions/user/${userId}/paginated`, {
+    const response = await subscriptionAPI.get(`/subscriptions/user/${userId}/paginated`, {
       params: { page, size }
     });
     return response;
@@ -11,7 +14,7 @@ class SubscriptionService {
 
   // Get active subscription for user
   async getActiveSubscription(userId) {
-    const response = await api.get(`/subscriptions/user/${userId}/active`);
+    const response = await subscriptionAPI.get(`/subscriptions/user/${userId}/active`);
     return response;
   }
 

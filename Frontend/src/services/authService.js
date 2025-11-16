@@ -1,13 +1,13 @@
-import api from './api';
+import api, { directUserAPI } from './api';
 
 class AuthService {
   async login(email, password) {
-    const response = await api.post('/auth/login', { email, password });
+    const response = await directUserAPI.post('/auth/login', { email, password });
     return response;
   }
 
   async register(userData) {
-    const response = await api.post('/auth/register', userData);
+    const response = await directUserAPI.post('/auth/register', userData);
     return response;
   }
 

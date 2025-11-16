@@ -31,6 +31,8 @@ import {
   CheckCircle,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import { toast } from 'react-toastify';
+import subscriptionService from '../../services/subscriptionService';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 
 const SubscriptionsPage = () => {
@@ -46,30 +48,27 @@ const SubscriptionsPage = () => {
     cancellationReason: '',
   });
 
-  // Mock data - replace with real API calls
+  // Fetch real subscription data
   useEffect(() => {
     const fetchSubscriptions = async () => {
-      // Simulate API call
-      setTimeout(() => {
-        setSubscriptions([
-          {
-            id: 1,
-            subscriptionType: 'MONTHLY',
-            price: 29.99,
-            startDate: '2024-01-15T00:00:00',
-            endDate: '2024-02-15T00:00:00',
-            status: 'ACTIVE',
-            autoRenewal: true,
-            daysRemaining: 12,
-            active: true,
-          }
-        ]);
+      if (!user?.id) return;
+      
+      try {
+        setLoading(true);
+        const response = await subscriptionService.getUserSubscriptions(user.id, 0, 10);
+        const subscriptionsData = response.data.content || response.data || [];
+        setSubscriptions(subscriptionsData);
+      } catch (error) {
+        console.error('Error fetching subscriptions:', error);
+        toast.error('Failed to load subscriptions');
+        setSubscriptions([]);
+      } finally {
         setLoading(false);
-      }, 1000);
+      }
     };
 
     fetchSubscriptions();
-  }, [user.id]);
+  }, [user?.id]);
 
   const handleOpenDialog = (type, subscription = null) => {
     setDialogType(type);
@@ -88,21 +87,57 @@ const SubscriptionsPage = () => {
   };
 
   const handleCreateSubscription = async () => {
-    // Implement create subscription logic
-    console.log('Creating subscription:', formData);
-    handleCloseDialog();
+    try {
+      const subscriptionData = {
+        userId: user.id,
+        subscriptionType: formData.subscriptionType,
+        autoRenewal: formData.autoRenewal,
+      };
+      
+      await subscriptionService.createSubscription(subscriptionData);
+      toast.success('Subscription created successfully!');
+      
+      // Refresh subscriptions list
+      const response = await subscriptionService.getUserSubscriptions(user.id, 0, 10);
+      setSubscriptions(response.data.content || response.data || []);
+      
+      handleCloseDialog();
+    } catch (error) {
+      console.error('Error creating subscription:', error);
+      toast.error(error.response?.data?.message || 'Failed to create subscription');
+    }
   };
 
   const handleCancelSubscription = async () => {
-    // Implement cancel subscription logic
-    console.log('Cancelling subscription:', selectedSubscription.id, formData.cancellationReason);
-    handleCloseDialog();
+    try {
+      await subscriptionService.cancelSubscription(selectedSubscription.id, formData.cancellationReason);
+      toast.success('Subscription cancelled successfully!');
+      
+      // Refresh subscriptions list
+      const response = await subscriptionService.getUserSubscriptions(user.id, 0, 10);
+      setSubscriptions(response.data.content || response.data || []);
+      
+      handleCloseDialog();
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      toast.error(error.response?.data?.message || 'Failed to cancel subscription');
+    }
   };
 
   const handleRenewSubscription = async () => {
-    // Implement renew subscription logic
-    console.log('Renewing subscription:', selectedSubscription.id);
-    handleCloseDialog();
+    try {
+      await subscriptionService.renewSubscription(selectedSubscription.id);
+      toast.success('Subscription renewed successfully!');
+      
+      // Refresh subscriptions list
+      const response = await subscriptionService.getUserSubscriptions(user.id, 0, 10);
+      setSubscriptions(response.data.content || response.data || []);
+      
+      handleCloseDialog();
+    } catch (error) {
+      console.error('Error renewing subscription:', error);
+      toast.error(error.response?.data?.message || 'Failed to renew subscription');
+    }
   };
 
   const getStatusColor = (status) => {
@@ -158,7 +193,7 @@ const SubscriptionsPage = () => {
             </Box>
             <LinearProgress
               variant="determinate"
-              value={(subscription.daysRemaining / 30) * 100}
+              value={(subscription.daysRemaining / (subscription.subscriptionType === 'MONTHLY' ? 30 : 365)) * 100}
               sx={{ borderRadius: 1 }}
             />
           </Box>

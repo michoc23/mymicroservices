@@ -31,6 +31,8 @@ import {
   History,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import { toast } from 'react-toastify';
+import ticketService from '../../services/ticketService';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 
 const TicketsPage = () => {
@@ -50,49 +52,41 @@ const TicketsPage = () => {
     quantity: 1,
   });
 
-  // Mock data - replace with real API calls
+  // Fetch real ticket data
   useEffect(() => {
     const fetchData = async () => {
-      // Simulate API call
-      setTimeout(() => {
-        setTickets([
-          {
-            id: 1,
-            ticketType: 'Single Journey',
-            price: 2.50,
-            purchaseDate: '2024-01-10T10:30:00',
-            status: 'USED',
-            validUntil: '2024-01-10T23:59:59',
-            qrCode: 'QR123456',
-          },
-          {
-            id: 2,
-            ticketType: 'Day Pass',
-            price: 8.00,
-            purchaseDate: '2024-01-08T09:15:00',
-            status: 'EXPIRED',
-            validUntil: '2024-01-09T09:15:00',
-            qrCode: 'QR789012',
-          }
-        ]);
-
-        setOrders([
-          {
-            id: 1,
-            orderNumber: 'ORD-2024-001',
-            date: '2024-01-10T10:30:00',
-            totalAmount: 5.00,
-            status: 'COMPLETED',
-            ticketCount: 2,
-          }
-        ]);
+      if (!user?.id) return;
+      
+      try {
+        setLoading(true);
         
+        // Fetch user tickets
+        const ticketsResponse = await ticketService.getUserTickets(user.id, 0, 20);
+        const ticketsData = ticketsResponse.data.content || ticketsResponse.data || [];
+        setTickets(ticketsData);
+
+        // Fetch user orders
+        try {
+          const ordersResponse = await ticketService.getUserOrders(user.id, 0, 20);
+          const ordersData = ordersResponse.data.content || ordersResponse.data || [];
+          setOrders(ordersData);
+        } catch (orderError) {
+          console.log('No orders found or service unavailable');
+          setOrders([]);
+        }
+        
+      } catch (error) {
+        console.error('Error fetching tickets:', error);
+        toast.error('Failed to load tickets');
+        setTickets([]);
+        setOrders([]);
+      } finally {
         setLoading(false);
-      }, 1000);
+      }
     };
 
     fetchData();
-  }, [user.id]);
+  }, [user?.id]);
 
   const handleOpenDialog = () => {
     setOpenDialog(true);
@@ -104,9 +98,43 @@ const TicketsPage = () => {
   };
 
   const handlePurchaseTicket = async () => {
-    // Implement purchase ticket logic
-    console.log('Purchasing ticket:', newTicket);
-    handleCloseDialog();
+    try {
+      const selectedTicketType = ticketTypes.find(t => t.id === newTicket.ticketTypeId);
+      if (!selectedTicketType) {
+        toast.error('Please select a ticket type');
+        return;
+      }
+
+      const orderData = {
+        userId: user.id,
+        tickets: Array(newTicket.quantity).fill({
+          ticketTypeId: newTicket.ticketTypeId,
+          price: selectedTicketType.price,
+        }),
+        totalAmount: selectedTicketType.price * newTicket.quantity,
+      };
+      
+      await ticketService.createOrder(orderData);
+      toast.success('Ticket purchased successfully!');
+      
+      // Refresh tickets and orders
+      const [ticketsResponse, ordersResponse] = await Promise.allSettled([
+        ticketService.getUserTickets(user.id, 0, 20),
+        ticketService.getUserOrders(user.id, 0, 20),
+      ]);
+      
+      if (ticketsResponse.status === 'fulfilled') {
+        setTickets(ticketsResponse.value.data.content || ticketsResponse.value.data || []);
+      }
+      if (ordersResponse.status === 'fulfilled') {
+        setOrders(ordersResponse.value.data.content || ordersResponse.value.data || []);
+      }
+      
+      handleCloseDialog();
+    } catch (error) {
+      console.error('Error purchasing ticket:', error);
+      toast.error(error.response?.data?.message || 'Failed to purchase ticket');
+    }
   };
 
   const getStatusColor = (status) => {
@@ -158,7 +186,7 @@ const TicketsPage = () => {
             variant="outlined"
             size="small"
             startIcon={<QrCode />}
-            disabled={ticket.status !== 'VALID'}
+            disabled={ticket.status !== 'VALID' && ticket.status !== 'ACTIVE'}
           >
             Show QR
           </Button>

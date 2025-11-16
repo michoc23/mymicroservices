@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
@@ -22,29 +22,114 @@ import {
   Star,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import subscriptionService from '../../services/subscriptionService';
+import ticketService from '../../services/ticketService';
+import LoadingSpinner from '../../components/Common/LoadingSpinner';
 
 const DashboardPage = () => {
   const { user } = useAuth();
-
-  // Mock data - replace with real API calls
-  const dashboardData = {
-    activeSubscription: {
-      type: 'Monthly',
-      endDate: '2024-02-15',
-      daysRemaining: 12,
-      status: 'ACTIVE',
-    },
-    recentTickets: [
-      { id: 1, route: 'Line 1', date: '2024-01-10', status: 'Used' },
-      { id: 2, route: 'Line 3', date: '2024-01-08', status: 'Used' },
-    ],
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState({
+    activeSubscription: null,
+    recentTickets: [],
     stats: {
-      totalTrips: 24,
-      monthlySavings: 45.50,
-      favoriteRoute: 'Line 1',
-      avgTripTime: '25 min',
+      totalTrips: 0,
+      monthlySavings: 0,
+      favoriteRoute: 'N/A',
+      avgTripTime: 'N/A',
     },
-  };
+  });
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (!user?.id) return;
+      
+      try {
+        setLoading(true);
+        
+        // Set timeout for all API calls
+        const timeout = 5000; // 5 seconds
+        
+        // Fetch active subscription with timeout
+        let activeSubscription = null;
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeout);
+          
+          const activeSubResponse = await Promise.race([
+            subscriptionService.getActiveSubscription(user.id),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Subscription fetch timeout')), timeout)
+            )
+          ]);
+          
+          clearTimeout(timeoutId);
+          
+          if (activeSubResponse?.data) {
+            const sub = activeSubResponse.data;
+            activeSubscription = {
+              type: sub.subscriptionType,
+              endDate: new Date(sub.endDate).toLocaleDateString(),
+              daysRemaining: sub.daysRemaining,
+              status: sub.status,
+              price: sub.price,
+              autoRenewal: sub.autoRenewal,
+            };
+          }
+        } catch (error) {
+          console.log('Subscription service unavailable:', error.message);
+        }
+
+        // Fetch recent tickets with timeout
+        let recentTickets = [];
+        try {
+          const ticketsResponse = await Promise.race([
+            ticketService.getUserTickets(user.id, 0, 5),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Tickets fetch timeout')), timeout)
+            )
+          ]);
+          
+          recentTickets = ticketsResponse?.data?.content || ticketsResponse?.data || [];
+        } catch (error) {
+          console.log('Ticket service unavailable:', error.message);
+        }
+
+        // Calculate stats with fallbacks
+        const totalTrips = recentTickets.length;
+        const monthlySavings = activeSubscription ? 
+          Math.max(0, (totalTrips * 2.50) - activeSubscription.price) : 0;
+
+        setDashboardData({
+          activeSubscription,
+          recentTickets: recentTickets.slice(0, 3),
+          stats: {
+            totalTrips,
+            monthlySavings: monthlySavings.toFixed(2),
+            favoriteRoute: recentTickets.length > 0 ? 'Line 1' : 'N/A',
+            avgTripTime: '25 min',
+          },
+        });
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        // Set default empty state
+        setDashboardData({
+          activeSubscription: null,
+          recentTickets: [],
+          stats: {
+            totalTrips: 0,
+            monthlySavings: 0,
+            favoriteRoute: 'N/A',
+            avgTripTime: 'N/A',
+          },
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user?.id]);
 
   const StatCard = ({ icon, title, value, subtitle, color = 'primary' }) => (
     <Card sx={{ height: '100%', position: 'relative', overflow: 'visible' }}>
@@ -76,6 +161,10 @@ const DashboardPage = () => {
       </CardContent>
     </Card>
   );
+
+  if (loading) {
+    return <LoadingSpinner message="Loading your dashboard..." />;
+  }
 
   return (
     <Box>

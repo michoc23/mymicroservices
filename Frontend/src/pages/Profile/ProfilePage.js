@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Grid,
@@ -27,6 +27,8 @@ import {
   Phone,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import { toast } from 'react-toastify';
+import userService from '../../services/userService';
 
 const ProfilePage = () => {
   const { user, updateUser } = useAuth();
@@ -65,32 +67,53 @@ const ProfilePage = () => {
 
   const handleSave = async () => {
     try {
-      // Implement profile update logic
+      await userService.updateProfile(formData);
       updateUser(formData);
       setEditing(false);
-      // Show success message
+      toast.success('Profile updated successfully!');
     } catch (error) {
-      // Handle error
       console.error('Failed to update profile:', error);
+      toast.error(error.response?.data?.message || 'Failed to update profile');
     }
   };
 
-  const handlePreferenceChange = (preference) => (event) => {
-    setPreferences({
+  const handlePreferenceChange = (preference) => async (event) => {
+    const newPreferences = {
       ...preferences,
       [preference]: event.target.checked,
-    });
+    };
+    
+    setPreferences(newPreferences);
+    
+    try {
+      await userService.updatePreferences(newPreferences);
+      toast.success('Preferences updated successfully!');
+    } catch (error) {
+      console.error('Failed to update preferences:', error);
+      toast.error('Failed to update preferences');
+      // Revert the change on error
+      setPreferences(preferences);
+    }
   };
 
   const handlePasswordChange = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      // Show error
+      toast.error('New passwords do not match');
+      return;
+    }
+    
+    if (passwordData.newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters long');
       return;
     }
     
     try {
-      // Implement password change logic
-      console.log('Changing password');
+      await userService.changePassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+      
+      toast.success('Password changed successfully!');
       setPasswordData({
         currentPassword: '',
         newPassword: '',
@@ -98,6 +121,7 @@ const ProfilePage = () => {
       });
     } catch (error) {
       console.error('Failed to change password:', error);
+      toast.error(error.response?.data?.message || 'Failed to change password');
     }
   };
 
