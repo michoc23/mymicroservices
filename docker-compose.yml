@@ -49,6 +49,28 @@ services:
       timeout: 5s
       retries: 5
 
+  # PostgreSQL Database for Subscription Service
+  postgres-subscription:
+    image: postgres:15-alpine
+    container_name: subscription-service-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: subscription_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres_subscription_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Redis for API Gateway Rate Limiting
   redis:
     image: redis:7-alpine
@@ -85,6 +107,7 @@ services:
     depends_on:
       - postgres
       - postgres-ticket
+      - postgres-subscription
 
   # ========== Microservices ==========
 
@@ -166,6 +189,31 @@ services:
       start_period: 60s
       retries: 3
 
+  # Subscription Service
+  subscription-service:
+    build:
+      context: .
+      dockerfile: Subscription/Dockerfile
+    container_name: subscription-service-app
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-subscription:5432/subscription_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    ports:
+      - "8084:8084"
+    networks:
+      - microservices-network
+    depends_on:
+      postgres-subscription:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8084/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 60s
+      retries: 3
+
 networks:
   microservices-network:
     driver: bridge
@@ -174,6 +222,8 @@ volumes:
   postgres_data:
     driver: local
   postgres_ticket_data:
+    driver: local
+  postgres_subscription_data:
     driver: local
   pgadmin_data:
     driver: local

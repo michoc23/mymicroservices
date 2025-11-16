@@ -23,6 +23,7 @@
         <module>User</module>
         <module>api-gateway</module>
         <module>Ticket</module>
+        <module>Subscription</module>
     </modules>
 
     <properties>

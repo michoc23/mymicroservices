@@ -39,6 +39,11 @@ public class FallbackController {
         return createFallbackResponse("Notification Service");
     }
 
+    @GetMapping("/subscription-service")
+    public ResponseEntity<Map<String, Object>> subscriptionServiceFallback() {
+        return createFallbackResponse("Subscription Service");
+    }
+
     private ResponseEntity<Map<String, Object>> createFallbackResponse(String serviceName) {
         Map<String, Object> response = new HashMap<>();
         response.put("timestamp", LocalDateTime.now().toString());
