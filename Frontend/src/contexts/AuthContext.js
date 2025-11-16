@@ -30,10 +30,10 @@ export const AuthProvider = ({ children }) => {
             // Token is valid, set up axios defaults
             authService.setAuthToken(token);
             
-            // Get user info from token or fetch from API
+            // Get user info from token
             setUser({
-              id: decodedToken.sub,
-              email: decodedToken.email,
+              id: decodedToken.userId,
+              email: decodedToken.sub,
               firstName: decodedToken.firstName,
               lastName: decodedToken.lastName,
               role: decodedToken.role,
@@ -60,14 +60,20 @@ export const AuthProvider = ({ children }) => {
     try {
       setLoading(true);
       const response = await authService.login(email, password);
-      const { token, user: userData } = response.data;
+      const { token, userId, email: userEmail, role, firstName, lastName } = response.data;
 
       // Store token
       localStorage.setItem('token', token);
       authService.setAuthToken(token);
 
-      // Set user data
-      setUser(userData);
+      // Set user data from the response
+      setUser({
+        id: userId,
+        email: userEmail,
+        firstName: firstName,
+        lastName: lastName,
+        role: role,
+      });
 
       toast.success('Login successful!');
       return { success: true };
