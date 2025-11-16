@@ -49,6 +49,9 @@ const RegisterPage = () => {
     setError('');
     const { confirmPassword, ...userData } = data;
     
+    // Add required role field for backend
+    userData.role = 'PASSENGER';
+    
     const result = await registerUser(userData);
     
     if (result.success) {

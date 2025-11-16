@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: 'http://localhost:8081/api/v1', // Direct to User Service for now
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
