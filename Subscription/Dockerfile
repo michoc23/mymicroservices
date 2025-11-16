@@ -3,21 +3,13 @@ FROM maven:3.9-eclipse-temurin-17-alpine AS build
 
 WORKDIR /app
 
-# Copy Maven configuration files
-COPY pom.xml .
-COPY api-gateway/pom.xml api-gateway/
-COPY User/pom.xml User/
-COPY Ticket/pom.xml Ticket/
-COPY Subscription/pom.xml Subscription/
+# Copy subscription service files
+COPY Subscription/pom.xml ./pom.xml
+COPY Subscription/src ./src
 
-# Download dependencies
-RUN mvn -f Subscription/pom.xml dependency:go-offline
-
-# Copy source code
-COPY Subscription/src Subscription/src
-
-# Build the application
-RUN mvn -f Subscription/pom.xml clean package -DskipTests
+# Download dependencies and build
+RUN mvn dependency:go-offline -B
+RUN mvn clean package -DskipTests
 
 # Runtime stage
 FROM eclipse-temurin:17-jre-alpine
@@ -28,7 +20,7 @@ RUN addgroup -S spring && adduser -S spring -G spring
 WORKDIR /app
 
 # Copy built jar from build stage
-COPY --from=build /app/Subscription/target/*.jar app.jar
+COPY --from=build /app/target/*.jar app.jar
 
 # Change ownership
 RUN chown spring:spring app.jar

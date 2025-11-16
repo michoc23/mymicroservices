@@ -23,8 +23,6 @@
         <module>User</module>
         <module>api-gateway</module>
         <module>Ticket</module>
-        <module>Subscription</module>
-        <module>Frontend</module>
     </modules>
 
     <properties>
