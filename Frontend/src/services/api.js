@@ -1,10 +1,16 @@
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
+// Simple logging function to avoid circular imports
+const logApiEvent = (message, data = null) => {
+  const timestamp = new Date().toISOString().substr(11, 8);
+  console.log(`[${timestamp}] 🌐 API: ${message}`, data || '');
+};
+
 // Create axios instance with default config
 const api = axios.create({
   baseURL: '/api/v1', // Use API Gateway proxy
-  timeout: 3000, // Reduced timeout for faster failure
+  timeout: 15000, // Increased timeout to prevent premature failures
   headers: {
     'Content-Type': 'application/json',
   },
@@ -57,10 +63,22 @@ api.interceptors.response.use(
       
       switch (status) {
         case 401:
-          // Unauthorized - redirect to login
-          localStorage.removeItem('token');
-          window.location.href = '/login';
-          toast.error('Session expired. Please login again.');
+          // Only logout if we're not already on login page and token exists
+          const currentPath = window.location.pathname;
+          const hasToken = localStorage.getItem('token');
+          
+          logApiEvent(`401 Unauthorized on ${error.config?.url}`, {
+            currentPath,
+            hasToken: !!hasToken,
+            willLogout: hasToken && currentPath !== '/login'
+          });
+          
+          if (hasToken && currentPath !== '/login') {
+            logApiEvent('Forcing logout due to 401');
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+            toast.error('Session expired. Please login again.');
+          }
           break;
         case 403:
           toast.error('Access denied. You do not have permission to perform this action.');
@@ -76,9 +94,14 @@ api.interceptors.response.use(
       }
     } else if (error.request) {
       // Network error
+      logApiEvent('Network error occurred', {
+        url: error.config?.url,
+        timeout: error.code === 'ECONNABORTED'
+      });
       toast.error('Network error. Please check your connection.');
     } else {
       // Request setup error
+      logApiEvent('Request setup error:', error.message);
       toast.error('Request failed. Please try again.');
     }
 

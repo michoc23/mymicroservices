@@ -51,16 +51,31 @@ const SubscriptionsPage = () => {
   // Fetch real subscription data
   useEffect(() => {
     const fetchSubscriptions = async () => {
-      if (!user?.id) return;
+      console.log('🔄 Fetching subscriptions for user:', user);
+      
+      if (!user?.id) {
+        console.log('❌ No user ID available, stopping subscription fetch');
+        setLoading(false);
+        return;
+      }
       
       try {
         setLoading(true);
+        console.log('📡 Calling getUserSubscriptions with userId:', user.id);
+        
         const response = await subscriptionService.getUserSubscriptions(user.id, 0, 10);
+        console.log('✅ Subscriptions response:', response);
+        
         const subscriptionsData = response.data.content || response.data || [];
+        console.log('📋 Processed subscriptions data:', subscriptionsData);
+        
         setSubscriptions(subscriptionsData);
       } catch (error) {
-        console.error('Error fetching subscriptions:', error);
-        toast.error('Failed to load subscriptions');
+        console.error('❌ Error fetching subscriptions:', error);
+        console.error('Error response:', error.response?.data);
+        console.error('Error status:', error.response?.status);
+        
+        toast.error(`Failed to load subscriptions: ${error.response?.data?.message || error.message}`);
         setSubscriptions([]);
       } finally {
         setLoading(false);

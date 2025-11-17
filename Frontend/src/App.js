@@ -9,7 +9,7 @@ import { useAuth } from './contexts/AuthContext';
 // Pages
 import LoginPage from './pages/Auth/LoginPage';
 import RegisterPage from './pages/Auth/RegisterPage';
-import DashboardPage from './pages/Dashboard/SimpleDashboard';
+import DashboardPage from './pages/Dashboard/DashboardPage';
 import TicketsPage from './pages/Tickets/TicketsPage';
 import SubscriptionsPage from './pages/Subscriptions/SubscriptionsPage';
 import ProfilePage from './pages/Profile/ProfilePage';

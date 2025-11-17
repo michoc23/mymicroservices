@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import jwtDecode from 'jwt-decode';
 import authService from '../services/authService';
+import AuthLogger from '../utils/authLogger';
 
 const AuthContext = createContext();
 
@@ -20,14 +21,17 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        AuthLogger.log('Initializing authentication...');
         const token = localStorage.getItem('token');
         if (token) {
+          AuthLogger.log('Token found, validating...');
           // Verify token is not expired
           const decodedToken = jwtDecode(token);
           const currentTime = Date.now() / 1000;
           
           if (decodedToken.exp > currentTime) {
             // Token is valid, set up axios defaults
+            AuthLogger.log('Token valid, setting up user session');
             authService.setAuthToken(token);
             
             // Get user info from token
@@ -38,14 +42,20 @@ export const AuthProvider = ({ children }) => {
               lastName: decodedToken.lastName,
               role: decodedToken.role,
             });
+            
+            // Start monitoring token
+            AuthLogger.startMonitoring();
           } else {
             // Token expired, remove it
+            AuthLogger.log('Token expired during initialization');
             localStorage.removeItem('token');
             authService.setAuthToken(null);
           }
+        } else {
+          AuthLogger.log('No token found');
         }
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        AuthLogger.log('Auth initialization error:', error.message);
         localStorage.removeItem('token');
         authService.setAuthToken(null);
       } finally {
@@ -59,6 +69,8 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       setLoading(true);
+      AuthLogger.log(`Login attempt for: ${email}`);
+      
       const response = await authService.login(email, password);
       const { token, userId, email: userEmail, role, firstName, lastName } = response.data;
 
@@ -75,9 +87,13 @@ export const AuthProvider = ({ children }) => {
         role: role,
       });
 
+      AuthLogger.log('Login successful, starting monitoring');
+      AuthLogger.startMonitoring();
+      
       toast.success('Login successful!');
       return { success: true };
     } catch (error) {
+      AuthLogger.log('Login failed:', error.response?.data?.message || error.message);
       const message = error.response?.data?.message || 'Login failed. Please try again.';
       toast.error(message);
       return { success: false, error: message };
@@ -103,6 +119,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    AuthLogger.log('Manual logout triggered');
     localStorage.removeItem('token');
     authService.setAuthToken(null);
     setUser(null);
