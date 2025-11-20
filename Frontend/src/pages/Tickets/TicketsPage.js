@@ -46,6 +46,9 @@ const TicketsPage = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
+  const [paymentStep, setPaymentStep] = useState(1); // 1: Select ticket, 2: Payment
+  const [pendingOrder, setPendingOrder] = useState(null);
+  const [processingPayment, setProcessingPayment] = useState(false);
   const [qrDialog, setQrDialog] = useState({ open: false, ticket: null });
   const [orderDialog, setOrderDialog] = useState({
     open: false,
@@ -105,50 +108,133 @@ const TicketsPage = () => {
     fetchData();
   }, [user?.id]);
 
+  // Load PayPal SDK when payment step is active
+  useEffect(() => {
+    if (paymentStep === 2 && pendingOrder) {
+      // Check if PayPal script is already loaded
+      if (window.paypal) {
+        renderPayPalButton();
+        return;
+      }
+
+      // Load PayPal SDK
+      const script = document.createElement('script');
+      script.src = 'https://www.paypal.com/sdk/js?client-id=AZDxjDScFpQtjWTOUtWKbyN_bDt4OgqaF4eYXlewfBP4-8aqX3PiV8e1GWU6liB2CUXlkA59kJid7Ld9&currency=USD';
+      script.async = true;
+      script.onload = () => {
+        renderPayPalButton();
+      };
+      document.body.appendChild(script);
+
+      return () => {
+        // Cleanup: remove PayPal button container content
+        const container = document.getElementById('paypal-button-container');
+        if (container) {
+          container.innerHTML = '';
+        }
+      };
+    }
+  }, [paymentStep, pendingOrder]);
+
+  const renderPayPalButton = () => {
+    const container = document.getElementById('paypal-button-container');
+    if (!container || !window.paypal || !pendingOrder) return;
+
+    // Clear existing buttons
+    container.innerHTML = '';
+
+    window.paypal.Buttons({
+      createOrder: (data, actions) => {
+        return actions.order.create({
+          purchase_units: [{
+            amount: {
+              value: pendingOrder.totalAmount.toFixed(2),
+              currency_code: 'USD'
+            },
+            description: `${pendingOrder.ticketTypeName} x ${newTicket.quantity}`
+          }]
+        });
+      },
+      onApprove: async (data, actions) => {
+        const details = await actions.order.capture();
+        console.log('PayPal payment successful:', details);
+        await handlePayPalPayment(details);
+      },
+      onError: (err) => {
+        console.error('PayPal error:', err);
+        toast.error('PayPal payment failed. Please try again.');
+      },
+      onCancel: () => {
+        toast.info('PayPal payment cancelled.');
+      },
+      style: {
+        layout: 'vertical',
+        color: 'gold',
+        shape: 'rect',
+        label: 'paypal'
+      }
+    }).render('#paypal-button-container');
+  };
+
   const handleOpenDialog = () => {
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
+    setPaymentStep(1);
+    setPendingOrder(null);
     setNewTicket({ ticketTypeId: '', quantity: 1 });
   };
 
-  const handlePurchaseTicket = async () => {
+  const handleProceedToPayment = () => {
+    const selectedTicketType = ticketTypes.find(t => t.id === newTicket.ticketTypeId);
+    if (!selectedTicketType) {
+      toast.error('Please select a ticket type');
+      return;
+    }
+
+    // Calculate valid dates
+    const now = new Date();
+    const validFrom = new Date(now);
+    validFrom.setHours(now.getHours() + 1, 0, 0, 0); // Start 1 hour from now
+    
+    let validUntil = new Date(validFrom);
+    // Set validity based on ticket type
+    if (selectedTicketType.type === 'SINGLE') {
+      validUntil.setHours(validFrom.getHours() + 2); // 2 hours for single
+    } else if (selectedTicketType.type === 'DAY_PASS') {
+      validUntil.setDate(validFrom.getDate() + 1); // 24 hours
+    } else if (selectedTicketType.type === 'MULTI_RIDE') {
+      validUntil.setDate(validFrom.getDate() + 30); // 30 days
+    }
+
+    const orderData = {
+      userId: user.id,
+      tickets: Array(newTicket.quantity).fill(null).map(() => ({
+        ticketType: selectedTicketType.type,
+        routeId: 1, // Default route ID - TODO: allow user to select route
+        validFrom: validFrom.toISOString(),
+        validUntil: validUntil.toISOString(),
+      })),
+      totalAmount: selectedTicketType.price * newTicket.quantity,
+      ticketTypeName: selectedTicketType.name,
+    };
+
+    setPendingOrder(orderData);
+    setPaymentStep(2);
+  };
+
+  const handleMockPayment = async () => {
     try {
-      const selectedTicketType = ticketTypes.find(t => t.id === newTicket.ticketTypeId);
-      if (!selectedTicketType) {
-        toast.error('Please select a ticket type');
-        return;
-      }
-
-      // Calculate valid dates
-      const now = new Date();
-      const validFrom = new Date(now);
-      validFrom.setHours(now.getHours() + 1, 0, 0, 0); // Start 1 hour from now
+      setProcessingPayment(true);
       
-      let validUntil = new Date(validFrom);
-      // Set validity based on ticket type
-      if (selectedTicketType.type === 'SINGLE') {
-        validUntil.setHours(validFrom.getHours() + 2); // 2 hours for single
-      } else if (selectedTicketType.type === 'DAY_PASS') {
-        validUntil.setDate(validFrom.getDate() + 1); // 24 hours
-      } else if (selectedTicketType.type === 'MULTI_RIDE') {
-        validUntil.setDate(validFrom.getDate() + 30); // 30 days
-      }
-
-      const orderData = {
-        userId: user.id,
-        tickets: Array(newTicket.quantity).fill(null).map(() => ({
-          ticketType: selectedTicketType.type,
-          routeId: 1, // Default route ID - TODO: allow user to select route
-          validFrom: validFrom.toISOString(),
-          validUntil: validUntil.toISOString(),
-        })),
-      };
+      // Simulate payment processing delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      await ticketService.createOrder(orderData);
-      toast.success('Ticket purchased successfully!');
+      // Create the order
+      await ticketService.createOrder(pendingOrder);
+      toast.success('Payment successful! Ticket purchased.');
       
       // Refresh tickets and orders
       const [ticketsResponse, ordersResponse] = await Promise.allSettled([
@@ -165,10 +251,48 @@ const TicketsPage = () => {
       
       handleCloseDialog();
     } catch (error) {
-      console.error('Error purchasing ticket:', error);
-      const errorMessage = error.response?.data?.message || error.response?.data?.details?.join(', ') || 'Failed to purchase ticket';
+      console.error('Error processing payment:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.details?.join(', ') || 'Failed to process payment';
       toast.error(errorMessage);
+    } finally {
+      setProcessingPayment(false);
     }
+  };
+
+  const handlePayPalPayment = async (details) => {
+    try {
+      setProcessingPayment(true);
+      
+      // Create the order after successful PayPal payment
+      await ticketService.createOrder(pendingOrder);
+      toast.success('Payment successful! Ticket purchased.');
+      
+      // Refresh tickets and orders
+      const [ticketsResponse, ordersResponse] = await Promise.allSettled([
+        ticketService.getUserTickets(user.id, 0, 20),
+        ticketService.getUserOrders(user.id, 0, 20),
+      ]);
+      
+      if (ticketsResponse.status === 'fulfilled') {
+        setTickets(ticketsResponse.value.data.content || ticketsResponse.value.data || []);
+      }
+      if (ordersResponse.status === 'fulfilled') {
+        setOrders(ordersResponse.value.data.content || ordersResponse.value.data || []);
+      }
+      
+      handleCloseDialog();
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.details?.join(', ') || 'Failed to process payment';
+      toast.error(errorMessage);
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const handleBackToTicketSelection = () => {
+    setPaymentStep(1);
+    setPendingOrder(null);
   };
 
   const getStatusColor = (status) => {
@@ -534,61 +658,125 @@ const TicketsPage = () => {
         </Table>
       </TableContainer>
 
-      {/* Purchase Dialog */}
+      {/* Purchase Dialog - Multi-Step */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>Purchase Ticket</DialogTitle>
+        <DialogTitle>
+          {paymentStep === 1 ? 'Select Ticket' : 'Payment'}
+        </DialogTitle>
         
         <DialogContent>
-          <FormControl fullWidth margin="normal">
-            <InputLabel>Ticket Type</InputLabel>
-            <Select
-              value={newTicket.ticketTypeId}
-              label="Ticket Type"
-              onChange={(e) => setNewTicket({...newTicket, ticketTypeId: e.target.value})}
-            >
-              {ticketTypes.map((type) => (
-                <MenuItem key={type.id} value={type.id}>
-                  {type.name} - ${type.price} ({type.description})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          
-          <FormControl fullWidth margin="normal">
-            <InputLabel>Quantity</InputLabel>
-            <Select
-              value={newTicket.quantity}
-              label="Quantity"
-              onChange={(e) => setNewTicket({...newTicket, quantity: e.target.value})}
-            >
-              {[1, 2, 3, 4, 5].map((num) => (
-                <MenuItem key={num} value={num}>{num}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+          {paymentStep === 1 ? (
+            // Step 1: Ticket Selection
+            <>
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Ticket Type</InputLabel>
+                <Select
+                  value={newTicket.ticketTypeId}
+                  label="Ticket Type"
+                  onChange={(e) => setNewTicket({...newTicket, ticketTypeId: e.target.value})}
+                >
+                  {ticketTypes.map((type) => (
+                    <MenuItem key={type.id} value={type.id}>
+                      {type.name} - ${type.price} ({type.description})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Quantity</InputLabel>
+                <Select
+                  value={newTicket.quantity}
+                  label="Quantity"
+                  onChange={(e) => setNewTicket({...newTicket, quantity: e.target.value})}
+                >
+                  {[1, 2, 3, 4, 5].map((num) => (
+                    <MenuItem key={num} value={num}>{num}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-          {newTicket.ticketTypeId && (
-            <Paper sx={{ p: 2, mt: 2, backgroundColor: 'background.default' }}>
-              <Typography variant="subtitle2">Order Summary</Typography>
-              <Typography variant="body2">
-                {ticketTypes.find(t => t.id === newTicket.ticketTypeId)?.name} × {newTicket.quantity}
+              {newTicket.ticketTypeId && (
+                <Paper sx={{ p: 2, mt: 2, backgroundColor: 'background.default' }}>
+                  <Typography variant="subtitle2">Order Summary</Typography>
+                  <Typography variant="body2">
+                    {ticketTypes.find(t => t.id === newTicket.ticketTypeId)?.name} × {newTicket.quantity}
+                  </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Total: ${((ticketTypes.find(t => t.id === newTicket.ticketTypeId)?.price || 0) * newTicket.quantity).toFixed(2)}
+                  </Typography>
+                </Paper>
+              )}
+            </>
+          ) : (
+            // Step 2: Payment
+            <>
+              <Paper sx={{ p: 2, mb: 3, backgroundColor: 'background.default' }}>
+                <Typography variant="subtitle2" sx={{ mb: 1 }}>Order Summary</Typography>
+                <Typography variant="body2">
+                  {pendingOrder?.ticketTypeName} × {newTicket.quantity}
+                </Typography>
+                <Divider sx={{ my: 1 }} />
+                <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                  Total: ${pendingOrder?.totalAmount?.toFixed(2)}
+                </Typography>
+              </Paper>
+
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Select Payment Method
               </Typography>
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Total: ${((ticketTypes.find(t => t.id === newTicket.ticketTypeId)?.price || 0) * newTicket.quantity).toFixed(2)}
-              </Typography>
-            </Paper>
+
+              {/* Mock Payment Button */}
+              <Button
+                variant="outlined"
+                fullWidth
+                size="large"
+                onClick={handleMockPayment}
+                disabled={processingPayment}
+                sx={{ mb: 2, py: 1.5 }}
+              >
+                {processingPayment ? (
+                  <>
+                    <CircularProgress size={20} sx={{ mr: 1 }} />
+                    Processing...
+                  </>
+                ) : (
+                  '💳 Mock Payment (Test)'
+                )}
+              </Button>
+
+              <Divider sx={{ my: 2 }}>OR</Divider>
+
+              {/* PayPal Button Container */}
+              <Box sx={{ mt: 2 }}>
+                <div id="paypal-button-container"></div>
+              </Box>
+            </>
           )}
         </DialogContent>
 
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button
-            onClick={handlePurchaseTicket}
-            variant="contained"
-            disabled={!newTicket.ticketTypeId}
-          >
-            Purchase Ticket
-          </Button>
+          {paymentStep === 1 ? (
+            <>
+              <Button onClick={handleCloseDialog}>Cancel</Button>
+              <Button
+                onClick={handleProceedToPayment}
+                variant="contained"
+                disabled={!newTicket.ticketTypeId}
+              >
+                Proceed to Payment
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button onClick={handleBackToTicketSelection} disabled={processingPayment}>
+                Back
+              </Button>
+              <Button onClick={handleCloseDialog} disabled={processingPayment}>
+                Cancel
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
 
