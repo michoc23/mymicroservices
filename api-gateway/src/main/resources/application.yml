@@ -14,14 +14,14 @@ spring:
           predicates:
             - Path=/api/v1/auth/**
           filters:
-            - StripPrefix=2
+            - StripPrefix=0
 
         - id: user-service-users
           uri: http://user-service:8081
           predicates:
             - Path=/api/v1/users/**
           filters:
-            - StripPrefix=2
+            - StripPrefix=0
 
         # Ticket Service Routes
         - id: ticket-service
@@ -29,7 +29,7 @@ spring:
           predicates:
             - Path=/api/v1/tickets/**
           filters:
-            - StripPrefix=2
+            - StripPrefix=0
 
         # Subscription Service Routes
         - id: subscription-service
@@ -37,7 +37,7 @@ spring:
           predicates:
             - Path=/api/v1/subscriptions/**
           filters:
-            - StripPrefix=2
+            - StripPrefix=0
 
         # Route Service Routes
         - id: route-service-routes
