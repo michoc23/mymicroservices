@@ -119,7 +119,7 @@ const TicketsPage = () => {
 
       // Load PayPal SDK
       const script = document.createElement('script');
-      script.src = 'https://www.paypal.com/sdk/js?client-id=BAAn3pbrz4aBfVmfybsrFG-0AXHyacJNrLUwej7QzHfrdLvk97Y-xwcfcYXtc76AVJceUJBxGxVTlCjCYA&currency=USD&disable-funding=venmo';
+      script.src = 'https://www.paypal.com/sdk/js?client-id=AUGGV1XV7PZFQ1F59qPPvuI_7V4RZ-EzOunEdiAeKzUVvWNDtKGCeFX0d4gUq5B2oZHKU5whlhOl0LXZ&currency=USD&disable-funding=venmo';
       script.async = true;
       script.onload = () => {
         renderPayPalButton();
