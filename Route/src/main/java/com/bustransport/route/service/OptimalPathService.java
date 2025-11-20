@@ -30,26 +30,48 @@ public class OptimalPathService {
     private final StopRepository stopRepository;
     private final RouteRepository routeRepository;
 
-    @Cacheable(value = "optimalPaths", key = "#request.startLat + '_' + #request.startLon + '_' + #request.endLat + '_' + #request.endLon")
+    @Cacheable(value = "optimalPaths")
     public OptimalPathResponse calculateOptimalPath(OptimalPathRequest request) {
-        log.debug("Calculating optimal path from ({}, {}) to ({}, {})", 
-            request.getStartLat(), request.getStartLon(), 
-            request.getEndLat(), request.getEndLon());
+        Stop nearestStartStop;
+        Stop nearestEndStop;
+        
+        // Check if stop IDs are provided (preferred method)
+        if (request.getOriginStopId() != null && request.getDestinationStopId() != null) {
+            log.debug("Calculating optimal path from stop {} to stop {}", 
+                request.getOriginStopId(), request.getDestinationStopId());
+            
+            nearestStartStop = stopRepository.findById(request.getOriginStopId())
+                .orElseThrow(() -> new IllegalArgumentException("Origin stop not found: " + request.getOriginStopId()));
+            nearestEndStop = stopRepository.findById(request.getDestinationStopId())
+                .orElseThrow(() -> new IllegalArgumentException("Destination stop not found: " + request.getDestinationStopId()));
+                
+            // Set coordinates from stops for walking calculations
+            request.setStartLat(nearestStartStop.getLatitude());
+            request.setStartLon(nearestStartStop.getLongitude());
+            request.setEndLat(nearestEndStop.getLatitude());
+            request.setEndLon(nearestEndStop.getLongitude());
+        } else if (request.getStartLat() != null && request.getStartLon() != null && 
+                   request.getEndLat() != null && request.getEndLon() != null) {
+            log.debug("Calculating optimal path from ({}, {}) to ({}, {})", 
+                request.getStartLat(), request.getStartLon(), 
+                request.getEndLat(), request.getEndLon());
 
-        // Find nearest stops to start and end points
-        double searchRadius = 1.0; // 1 km radius
-        List<Stop> startStops = stopRepository.findNearbyStops(
-            request.getStartLat(), request.getStartLon(), searchRadius);
-        List<Stop> endStops = stopRepository.findNearbyStops(
-            request.getEndLat(), request.getEndLon(), searchRadius);
+            // Find nearest stops to start and end points
+            double searchRadius = 1.0; // 1 km radius
+            List<Stop> startStops = stopRepository.findNearbyStops(
+                request.getStartLat(), request.getStartLon(), searchRadius);
+            List<Stop> endStops = stopRepository.findNearbyStops(
+                request.getEndLat(), request.getEndLon(), searchRadius);
 
-        if (startStops.isEmpty() || endStops.isEmpty()) {
-            return buildWalkingOnlyPath(request);
+            if (startStops.isEmpty() || endStops.isEmpty()) {
+                return buildWalkingOnlyPath(request);
+            }
+
+            nearestStartStop = startStops.get(0);
+            nearestEndStop = endStops.get(0);
+        } else {
+            throw new IllegalArgumentException("Either stop IDs or coordinates must be provided");
         }
-
-        // Find the best route connection
-        Stop nearestStartStop = startStops.get(0);
-        Stop nearestEndStop = endStops.get(0);
 
         // Check if there's a direct route between these stops
         List<Route> routesFromStart = routeRepository.findByStopId(nearestStartStop.getId());

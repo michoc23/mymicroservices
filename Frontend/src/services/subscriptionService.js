@@ -6,7 +6,7 @@ const subscriptionAPI = api;
 class SubscriptionService {
   // Get all subscriptions for current user
   async getUserSubscriptions(userId, page = 0, size = 10) {
-    const response = await subscriptionAPI.get(`/api/v1/subscriptions/user/${userId}/paginated`, {
+    const response = await subscriptionAPI.get(`/subscriptions/user/${userId}/paginated`, {
       params: { page, size }
     });
     return response;
@@ -14,37 +14,37 @@ class SubscriptionService {
 
   // Get active subscription for user
   async getActiveSubscription(userId) {
-    const response = await subscriptionAPI.get(`/api/v1/subscriptions/user/${userId}/active`);
+    const response = await subscriptionAPI.get(`/subscriptions/user/${userId}/active`);
     return response;
   }
 
   // Check if user has active subscription
   async hasActiveSubscription(userId) {
-    const response = await api.get(`/api/v1/subscriptions/user/${userId}/has-active`);
+    const response = await api.get(`/subscriptions/user/${userId}/has-active`);
     return response;
   }
 
   // Create new subscription
   async createSubscription(subscriptionData) {
-    const response = await api.post('/api/v1/subscriptions', subscriptionData);
+    const response = await api.post('/subscriptions', subscriptionData);
     return response;
   }
 
   // Update subscription settings
   async updateSubscription(subscriptionId, updateData) {
-    const response = await api.put(`/api/v1/subscriptions/${subscriptionId}`, updateData);
+    const response = await api.put(`/subscriptions/${subscriptionId}`, updateData);
     return response;
   }
 
   // Renew subscription
   async renewSubscription(subscriptionId) {
-    const response = await api.post(`/api/v1/subscriptions/${subscriptionId}/renew`);
+    const response = await api.post(`/subscriptions/${subscriptionId}/renew`);
     return response;
   }
 
   // Cancel subscription
   async cancelSubscription(subscriptionId, reason) {
-    const response = await api.post(`/api/v1/subscriptions/${subscriptionId}/cancel`, {
+    const response = await api.post(`/subscriptions/${subscriptionId}/cancel`, {
       cancellationReason: reason
     });
     return response;
@@ -52,19 +52,19 @@ class SubscriptionService {
 
   // Suspend subscription
   async suspendSubscription(subscriptionId) {
-    const response = await api.post(`/api/v1/subscriptions/${subscriptionId}/suspend`);
+    const response = await api.post(`/subscriptions/${subscriptionId}/suspend`);
     return response;
   }
 
   // Reactivate subscription
   async reactivateSubscription(subscriptionId) {
-    const response = await api.post(`/api/v1/subscriptions/${subscriptionId}/reactivate`);
+    const response = await api.post(`/subscriptions/${subscriptionId}/reactivate`);
     return response;
   }
 
   // Get subscription usage history
   async getSubscriptionUsage(subscriptionId, page = 0, size = 20) {
-    const response = await api.get(`/api/v1/subscription-usage/subscription/${subscriptionId}/paginated`, {
+    const response = await api.get(`/subscription-usage/subscription/${subscriptionId}/paginated`, {
       params: { page, size }
     });
     return response;
@@ -72,7 +72,7 @@ class SubscriptionService {
 
   // Get usage by date range
   async getUsageByDateRange(subscriptionId, startDate, endDate) {
-    const response = await api.get(`/api/v1/subscription-usage/subscription/${subscriptionId}/range`, {
+    const response = await api.get(`/subscription-usage/subscription/${subscriptionId}/range`, {
       params: { startDate, endDate }
     });
     return response;
@@ -80,7 +80,7 @@ class SubscriptionService {
 
   // Get usage statistics
   async getUsageStats(subscriptionId, startDate, endDate) {
-    const response = await api.get(`/api/v1/subscription-usage/subscription/${subscriptionId}/count`, {
+    const response = await api.get(`/subscription-usage/subscription/${subscriptionId}/count`, {
       params: { startDate, endDate }
     });
     return response;
@@ -88,7 +88,7 @@ class SubscriptionService {
 
   // Record subscription usage
   async recordUsage(subscriptionId, routeId, busId) {
-    const response = await api.post('/api/v1/subscription-usage/record', null, {
+    const response = await api.post('/subscription-usage/record', null, {
       params: { subscriptionId, routeId, busId }
     });
     return response;

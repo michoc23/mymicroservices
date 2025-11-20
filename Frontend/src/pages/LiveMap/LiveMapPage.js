@@ -18,16 +18,30 @@ import {
   Button,
   Grid
 } from '@mui/material';
-// import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { DirectionsBus, Warning, Refresh, Close, Map as MapIcon } from '@mui/icons-material';
-// import L from 'leaflet';
+import L from 'leaflet';
 import busLocationService from '../../services/busLocationService';
 import webSocketService from '../../services/webSocketService';
 import { toast } from 'react-toastify';
-// import 'leaflet/dist/leaflet.css';
+import 'leaflet/dist/leaflet.css';
 
-// Map functionality temporarily disabled due to React version compatibility
-// Will be re-enabled once react-leaflet is updated to support React 18
+// Fix default marker icon issue with webpack
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+// Custom bus icon
+const busIcon = L.divIcon({
+  html: '<div style="background-color: #1976d2; color: white; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M4 16c0 .88.39 1.67 1 2.22V20c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h8v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1.78c.61-.55 1-1.34 1-2.22V6c0-3.5-3.58-4-8-4s-8 .5-8 4v10zm3.5 1c-.83 0-1.5-.67-1.5-1.5S6.67 14 7.5 14s1.5.67 1.5 1.5S8.33 17 7.5 17zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm1.5-6H6V6h12v5z"/></svg></div>',
+  className: 'custom-bus-icon',
+  iconSize: [30, 30],
+  iconAnchor: [15, 15],
+  popupAnchor: [0, -15]
+});
 
 const LiveMapPage = () => {
   const [busLocations, setBusLocations] = useState([]);
@@ -187,62 +201,57 @@ const LiveMapPage = () => {
           </Alert>
         )}
 
-        <Paper sx={{ height: '70vh', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          {/* Map placeholder - Interactive map will be enabled when react-leaflet compatibility is resolved */}
-          <Box sx={{ 
-            flex: 1, 
-            display: 'flex', 
-            flexDirection: 'column',
-            alignItems: 'center', 
-            justifyContent: 'center',
-            bgcolor: 'grey.100',
-            p: 3
-          }}>
-            <MapIcon sx={{ fontSize: 80, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Live Bus Tracking Map
-            </Typography>
-            <Alert severity="info" sx={{ maxWidth: 600, mb: 3 }}>
-              Interactive map view is being prepared. Real-time bus data is being collected below.
-            </Alert>
+        <Paper sx={{ height: '70vh', position: 'relative', overflow: 'hidden' }}>
+          <MapContainer
+            center={mapCenter}
+            zoom={mapZoom}
+            style={{ height: '100%', width: '100%' }}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
             
-            {/* Bus list view as alternative */}
-            <Box sx={{ width: '100%', maxWidth: 800, maxHeight: 400, overflow: 'auto' }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-                Active Buses ({busLocations.length})
-              </Typography>
-              <Grid container spacing={2}>
-                {busLocations.map((bus) => (
-                  bus.location && (
-                    <Grid item xs={12} sm={6} md={4} key={bus.id}>
-                      <Card 
-                        sx={{ cursor: 'pointer', '&:hover': { boxShadow: 3 } }}
+            {/* Render bus markers */}
+            {busLocations.map((bus) => (
+              bus.location && (
+                <Marker
+                  key={bus.id}
+                  position={[bus.location.latitude, bus.location.longitude]}
+                  icon={busIcon}
+                >
+                  <Popup>
+                    <Box sx={{ p: 1, minWidth: 200 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                        Bus {bus.busNumber || bus.id}
+                      </Typography>
+                      <Typography variant="caption" display="block">
+                        Route: {bus.routeId}
+                      </Typography>
+                      <Typography variant="caption" display="block">
+                        Speed: {(bus.location.speed || 0).toFixed(1)} km/h
+                      </Typography>
+                      <Typography variant="caption" display="block">
+                        Heading: {(bus.location.heading || 0).toFixed(0)}°
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        Status: {bus.status || 'ACTIVE'}
+                      </Typography>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        fullWidth
+                        sx={{ mt: 1 }}
                         onClick={() => handleBusClick(bus)}
                       >
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                            <DirectionsBus color="primary" sx={{ mr: 1 }} />
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                              Bus {bus.routeName || bus.id}
-                            </Typography>
-                          </Box>
-                          <Typography variant="caption" display="block">
-                            Speed: {bus.location.speed || 0} km/h
-                          </Typography>
-                          <Typography variant="caption" display="block">
-                            Position: {bus.location.latitude.toFixed(4)}, {bus.location.longitude.toFixed(4)}
-                          </Typography>
-                          <Typography variant="caption" display="block" color="text.secondary">
-                            {new Date(bus.location.timestamp).toLocaleTimeString()}
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  )
-                ))}
-              </Grid>
-            </Box>
-          </Box>
+                        More Details
+                      </Button>
+                    </Box>
+                  </Popup>
+                </Marker>
+              )
+            ))}
+          </MapContainer>
         </Paper>
       </Box>
 

@@ -28,8 +28,19 @@ import {
   Schedule,
   Route as RouteIcon
 } from '@mui/icons-material';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import L from 'leaflet';
 import routeService from '../../services/routeService';
 import { toast } from 'react-toastify';
+import 'leaflet/dist/leaflet.css';
+
+// Fix default marker icon issue with webpack
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 const TripPlannerPage = () => {
   const [stops, setStops] = useState([]);
@@ -368,6 +379,63 @@ const TripPlannerPage = () => {
                     Total {routes.length} routes available • {stops.length} stops in network
                   </Typography>
                 </Paper>
+
+                {/* Map showing stops */}
+                {stops.length > 0 && (
+                  <Paper sx={{ p: 3, mt: 3 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                      Network Map
+                    </Typography>
+                    <Box sx={{ height: '400px', borderRadius: 1, overflow: 'hidden' }}>
+                      <MapContainer
+                        center={fromStop ? [fromStop.latitude, fromStop.longitude] : [48.8566, 2.3522]}
+                        zoom={12}
+                        style={{ height: '100%', width: '100%' }}
+                      >
+                        <TileLayer
+                          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+                        
+                        {/* Show all stops */}
+                        {stops.map((stop) => (
+                          <Marker
+                            key={stop.id}
+                            position={[stop.latitude, stop.longitude]}
+                          >
+                            <Popup>
+                              <Box sx={{ p: 1 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                                  {stop.name}
+                                </Typography>
+                                <Typography variant="caption" display="block">
+                                  Code: {stop.stopCode}
+                                </Typography>
+                                <Typography variant="caption" display="block">
+                                  Type: {stop.stopType}
+                                </Typography>
+                              </Box>
+                            </Popup>
+                          </Marker>
+                        ))}
+
+                        {/* Draw line between selected stops */}
+                        {fromStop && toStop && (
+                          <Polyline
+                            positions={[
+                              [fromStop.latitude, fromStop.longitude],
+                              [toStop.latitude, toStop.longitude]
+                            ]}
+                            color="#1976d2"
+                            weight={3}
+                            opacity={0.7}
+                            dashArray="10, 10"
+                          />
+                        )}
+                      </MapContainer>
+                    </Box>
+                  </Paper>
+                )}
               </Box>
             )}
           </Grid>
