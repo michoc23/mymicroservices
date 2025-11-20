@@ -1,0 +1,155 @@
+# Jenkins Pipeline Configuration
+# This file contains environment-specific settings for the CI/CD pipeline
+
+pipeline:
+  name: "urban-transport-microservices"
+  description: "CI/CD Pipeline for Urban Transport Management System"
+  
+  # Branch strategies
+  branches:
+    main:
+      deploy_to: ["staging", "production"]
+      require_approval: true
+      auto_deploy: false
+    develop:
+      deploy_to: ["development", "staging"]
+      require_approval: false
+      auto_deploy: true
+    feature/*:
+      deploy_to: ["development"]
+      require_approval: false
+      auto_deploy: false
+
+  # Build configuration
+  build:
+    timeout: 60  # minutes
+    retry_count: 2
+    parallel_jobs: 4
+    
+    # Maven configuration
+    maven:
+      version: "3.9.0"
+      goals: ["clean", "compile", "test", "package"]
+      profiles: ["ci"]
+      
+    # Node.js configuration
+    nodejs:
+      version: "18.x"
+      package_manager: "npm"
+      cache_enabled: true
+
+  # Testing configuration
+  testing:
+    unit_tests:
+      enabled: true
+      parallel: true
+      coverage_threshold: 80
+      
+    integration_tests:
+      enabled: true
+      environment: "test"
+      timeout: 30
+      
+    e2e_tests:
+      enabled: true
+      browsers: ["chrome", "firefox"]
+      timeout: 45
+
+  # Security scanning
+  security:
+    dependency_check:
+      enabled: true
+      fail_on_cvss: 7.0
+      
+    container_scan:
+      enabled: true
+      scanner: "trivy"
+      fail_on_high: true
+      
+    code_analysis:
+      enabled: true
+      tools: ["checkstyle", "spotbugs", "eslint"]
+
+  # Docker configuration
+  docker:
+    registry: "docker.io"
+    namespace: "your-organization"
+    build_args:
+      - "BUILD_DATE=${BUILD_DATE}"
+      - "VCS_REF=${GIT_COMMIT}"
+      - "VERSION=${BUILD_NUMBER}"
+      
+    # Service-specific configurations
+    services:
+      user-service:
+        dockerfile: "User/Dockerfile"
+        context: "User/"
+        ports: ["8081:8081"]
+        
+      ticket-service:
+        dockerfile: "Ticket/Dockerfile"
+        context: "Ticket/"
+        ports: ["8083:8083"]
+        
+      subscription-service:
+        dockerfile: "Subscription/Dockerfile"
+        context: "Subscription/"
+        ports: ["8084:8084"]
+        
+      api-gateway:
+        dockerfile: "api-gateway/Dockerfile"
+        context: "api-gateway/"
+        ports: ["8082:8082"]
+        
+      frontend-app:
+        dockerfile: "Frontend/Dockerfile"
+        context: "Frontend/"
+        ports: ["3000:80"]
+
+  # Deployment configuration
+  deployment:
+    development:
+      type: "docker-compose"
+      auto_deploy: true
+      health_check: true
+      rollback_on_failure: true
+      
+    staging:
+      type: "kubernetes"
+      namespace: "transport-staging"
+      replicas: 2
+      health_check: true
+      rollback_on_failure: true
+      
+    production:
+      type: "kubernetes"
+      namespace: "transport-prod"
+      replicas: 5
+      health_check: true
+      rollback_on_failure: true
+      blue_green: true
+
+  # Notification configuration
+  notifications:
+    email:
+      enabled: true
+      recipients: ["devops@company.com", "team-lead@company.com"]
+      on_success: false
+      on_failure: true
+      on_unstable: true
+      
+    slack:
+      enabled: true
+      channel: "#ci-cd-notifications"
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      
+    teams:
+      enabled: false
+      webhook_url: "${TEAMS_WEBHOOK_URL}"
+
+  # Cleanup configuration
+  cleanup:
+    workspace: true
+    docker_images: true
+    keep_builds: 10
+    keep_artifacts_days: 30
