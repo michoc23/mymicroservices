@@ -119,10 +119,14 @@ const TicketsPage = () => {
 
       // Load PayPal SDK
       const script = document.createElement('script');
-      script.src = 'https://www.paypal.com/sdk/js?client-id=AZDxjDScFpQtjWTOUtWKbyN_bDt4OgqaF4eYXlewfBP4-8aqX3PiV8e1GWU6liB2CUXlkA59kJid7Ld9&currency=USD';
+      script.src = 'https://www.paypal.com/sdk/js?client-id=BAAn3pbrz4aBfVmfybsrFG-0AXHyacJNrLUwej7QzHfrdLvk97Y-xwcfcYXtc76AVJceUJBxGxVTlCjCYA&currency=USD&disable-funding=venmo';
       script.async = true;
       script.onload = () => {
         renderPayPalButton();
+      };
+      script.onerror = () => {
+        console.error('Failed to load PayPal SDK');
+        toast.error('PayPal is currently unavailable. Please use Mock Payment.');
       };
       document.body.appendChild(script);
 
@@ -143,37 +147,50 @@ const TicketsPage = () => {
     // Clear existing buttons
     container.innerHTML = '';
 
-    window.paypal.Buttons({
-      createOrder: (data, actions) => {
-        return actions.order.create({
-          purchase_units: [{
-            amount: {
-              value: pendingOrder.totalAmount.toFixed(2),
-              currency_code: 'USD'
-            },
-            description: `${pendingOrder.ticketTypeName} x ${newTicket.quantity}`
-          }]
-        });
-      },
-      onApprove: async (data, actions) => {
-        const details = await actions.order.capture();
-        console.log('PayPal payment successful:', details);
-        await handlePayPalPayment(details);
-      },
-      onError: (err) => {
-        console.error('PayPal error:', err);
-        toast.error('PayPal payment failed. Please try again.');
-      },
-      onCancel: () => {
-        toast.info('PayPal payment cancelled.');
-      },
-      style: {
-        layout: 'vertical',
-        color: 'gold',
-        shape: 'rect',
-        label: 'paypal'
-      }
-    }).render('#paypal-button-container');
+    // Check if HostedButtons is available (for hosted button IDs)
+    if (window.paypal.HostedButtons) {
+      // Using hosted button approach - this won't work with dynamic amounts
+      // So we'll show a message instead
+      container.innerHTML = '<p style="color: #666; text-align: center; padding: 10px;">PayPal integration requires a sandbox/production client ID for dynamic payments. Please use Mock Payment for testing.</p>';
+      return;
+    }
+
+    // Standard PayPal Buttons (requires proper client ID)
+    if (window.paypal.Buttons) {
+      window.paypal.Buttons({
+        createOrder: (data, actions) => {
+          return actions.order.create({
+            purchase_units: [{
+              amount: {
+                value: pendingOrder.totalAmount.toFixed(2),
+                currency_code: 'USD'
+              },
+              description: `${pendingOrder.ticketTypeName} x ${newTicket.quantity}`
+            }]
+          });
+        },
+        onApprove: async (data, actions) => {
+          const details = await actions.order.capture();
+          console.log('PayPal payment successful:', details);
+          await handlePayPalPayment(details);
+        },
+        onError: (err) => {
+          console.error('PayPal error:', err);
+          toast.error('PayPal payment failed. Please try again.');
+        },
+        onCancel: () => {
+          toast.info('PayPal payment cancelled.');
+        },
+        style: {
+          layout: 'vertical',
+          color: 'gold',
+          shape: 'rect',
+          label: 'paypal'
+        }
+      }).render('#paypal-button-container');
+    } else {
+      container.innerHTML = '<p style="color: #666; text-align: center; padding: 10px;">PayPal SDK not properly loaded. Please use Mock Payment.</p>';
+    }
   };
 
   const handleOpenDialog = () => {
