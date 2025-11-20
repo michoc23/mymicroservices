@@ -17,7 +17,7 @@ import java.util.Base64;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/tickets")
+@RequestMapping("/api/v1/tickets")
 @RequiredArgsConstructor
 @Tag(name = "Ticket", description = "Ticket management APIs")
 @SecurityRequirement(name = "bearer-jwt")

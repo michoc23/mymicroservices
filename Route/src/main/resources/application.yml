@@ -1,0 +1,107 @@
+server:
+  port: 8085
+  servlet:
+    context-path: /api/v1
+
+spring:
+  application:
+    name: route-service
+  profiles:
+    active: dev
+
+  # Database Configuration
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/route_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
+    open-in-view: false
+
+  # Redis Configuration for Caching
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+
+  # Cache Configuration
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000 # 10 minutes in milliseconds
+      cache-null-values: false
+
+# GraphHopper Configuration
+graphhopper:
+  data-dir: ${GRAPHHOPPER_DATA_DIR:./graphhopper-data}
+  osm-file: ${OSM_FILE:./graphhopper-data/paris.osm.pbf}
+  graph-location: ${GRAPH_LOCATION:./graphhopper-data/graph-cache}
+  enabled: ${GRAPHHOPPER_ENABLED:true}
+
+# RATP Data Source Configuration
+ratp:
+  data:
+    base-url: ${RATP_DATA_URL:https://data.ratp.fr}
+    gtfs-url: ${RATP_GTFS_URL:}
+    auto-load: ${RATP_AUTO_LOAD:false}
+    
+# Logging
+logging:
+  level:
+    root: INFO
+    com.bustransport.route: DEBUG
+    org.springframework.cache: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+  file:
+    name: logs/route-service.log
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,caches
+  endpoint:
+    health:
+      show-details: always
+  health:
+    db:
+      enabled: true
+    redis:
+      enabled: true
+
+# Swagger/OpenAPI
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    tags-sorter: alpha
+    operations-sorter: alpha
+

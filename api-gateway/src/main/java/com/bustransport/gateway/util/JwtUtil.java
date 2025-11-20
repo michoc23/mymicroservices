@@ -2,12 +2,12 @@ package com.bustransport.gateway.util;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.List;
 import java.util.function.Function;
@@ -19,7 +19,8 @@ public class JwtUtil {
     private String secret;
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        // Match User Service: decode secret as BASE64
+        byte[] keyBytes = Decoders.BASE64.decode(secret);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
@@ -46,7 +47,9 @@ public class JwtUtil {
 
     public List<String> extractRoles(String token) {
         Claims claims = extractAllClaims(token);
-        return claims.get("roles", List.class);
+        // User Service uses "role" (singular) as String, convert to List
+        String role = claims.get("role", String.class);
+        return role != null ? List.of(role) : List.of();
     }
 
     public Boolean isTokenExpired(String token) {

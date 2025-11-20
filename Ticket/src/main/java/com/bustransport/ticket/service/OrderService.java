@@ -50,15 +50,18 @@ public class OrderService {
             .status(OrderStatus.PENDING)
             .build();
 
-        // Create tickets
+        // Create tickets with temporary QR codes
         for (CreateTicketRequest ticketRequest : request.getTickets()) {
             Ticket ticket = createTicketFromRequest(ticketRequest, request.getUserId());
+            // Generate temporary unique QR code (will be updated after save with ticket ID)
+            String tempQrCode = "TEMP-" + UUID.randomUUID().toString();
+            ticket.setQrCode(tempQrCode);
             order.addTicket(ticket);
         }
 
         order = orderRepository.save(order);
 
-        // Generate QR codes for tickets after saving (need ticket IDs)
+        // Generate final QR codes for tickets after saving (need ticket IDs)
         for (Ticket ticket : order.getTickets()) {
             String qrCode = qrCodeGenerator.generateUniqueQRCode(ticket.getId(), ticket.getUserId());
             ticket.setQrCode(qrCode);
@@ -171,12 +174,19 @@ public class OrderService {
             maxUsage = getDefaultMaxUsage(request.getTicketType());
         }
 
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime validFrom = request.getValidFrom() != null ? request.getValidFrom() : now;
+        LocalDateTime validUntil = request.getValidUntil() != null
+            ? request.getValidUntil()
+            : calculateDefaultValidUntil(validFrom, request.getTicketType());
+
         return Ticket.builder()
             .userId(userId)
             .ticketType(request.getTicketType())
             .price(price)
-            .validFrom(request.getValidFrom())
-            .validUntil(request.getValidUntil())
+            .purchaseDate(now)
+            .validFrom(validFrom)
+            .validUntil(validUntil)
             .status(TicketStatus.ACTIVE)
             .usageCount(0)
             .maxUsage(maxUsage)
@@ -184,6 +194,15 @@ public class OrderService {
             .scheduleId(request.getScheduleId())
             .passengerName(request.getPassengerName())
             .build();
+    }
+
+    private LocalDateTime calculateDefaultValidUntil(LocalDateTime validFrom, TicketType ticketType) {
+        return switch (ticketType) {
+            case SINGLE -> validFrom.plusHours(2);
+            case RETURN -> validFrom.plusHours(12);
+            case DAY_PASS -> validFrom.plusDays(1);
+            case MULTI_RIDE -> validFrom.plusDays(30);
+        };
     }
 
     private Integer getDefaultMaxUsage(TicketType ticketType) {

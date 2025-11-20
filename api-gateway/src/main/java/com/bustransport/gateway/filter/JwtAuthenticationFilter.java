@@ -55,9 +55,11 @@ public class JwtAuthenticationFilter extends AbstractGatewayFilterFactory<JwtAut
                 List<String> roles = jwtUtil.extractRoles(token);
 
                 // Add user info to request headers for downstream services
+                // Preserve the original Authorization header for downstream services
                 ServerHttpRequest modifiedRequest = request.mutate()
                         .header("X-User-Id", username)
                         .header("X-User-Roles", String.join(",", roles))
+                        .header(HttpHeaders.AUTHORIZATION, authHeader) // Preserve original auth header
                         .build();
 
                 log.debug("JWT validated successfully for user: {}", username);

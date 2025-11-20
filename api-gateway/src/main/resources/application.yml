@@ -1,247 +1,144 @@
 server:
-  port: 8082
+  port: 8080
 
 spring:
   application:
     name: api-gateway
-
-  # Redis Configuration (for Rate Limiting)
-  data:
-    redis:
-      host: redis
-      port: 6379
-      timeout: 2000
-
+  
   cloud:
     gateway:
       routes:
-        # User Service Routes - Public (No Authentication)
+        # User Service Routes
         - id: user-service-auth
-          uri: http://user-service-app:8081
+          uri: http://user-service:8081
           predicates:
             - Path=/api/v1/auth/**
           filters:
-            - name: CircuitBreaker
-              args:
-                name: userServiceCircuitBreaker
-                fallbackUri: forward:/fallback/user-service
+            - StripPrefix=2
 
-        # User Service Routes - Protected (Require Authentication)
-        - id: user-service-protected
-          uri: http://user-service-app:8081
+        - id: user-service-users
+          uri: http://user-service:8081
           predicates:
-            - Path=/api/v1/users/**,/api/v1/drivers/**,/api/v1/passengers/**,/api/v1/admin/**
+            - Path=/api/v1/users/**
           filters:
-            - JwtAuthenticationFilter
-            - name: CircuitBreaker
-              args:
-                name: userServiceCircuitBreaker
-                fallbackUri: forward:/fallback/user-service
-
-        # User Service Actuator
-        - id: user-service-actuator
-          uri: http://user-service-app:8081
-          predicates:
-            - Path=/api/v1/actuator/**
-          filters:
-            - JwtAuthenticationFilter
-
-        # Bus Service Routes (Future)
-        - id: bus-service
-          uri: http://localhost:8083
-          predicates:
-            - Path=/api/v1/buses/**,/api/v1/routes/**,/api/v1/schedules/**
-          filters:
-            - JwtAuthenticationFilter
-            - name: CircuitBreaker
-              args:
-                name: busServiceCircuitBreaker
-                fallbackUri: forward:/fallback/bus-service
+            - StripPrefix=2
 
         # Ticket Service Routes
         - id: ticket-service
-          uri: http://ticket-service-app:8083
+          uri: http://ticket-service:8083
           predicates:
-            - Path=/api/tickets/**,/api/orders/**,/api/payments/**,/api/refunds/**
+            - Path=/api/v1/tickets/**
           filters:
-            - JwtAuthenticationFilter
-            - name: CircuitBreaker
-              args:
-                name: ticketServiceCircuitBreaker
-                fallbackUri: forward:/fallback/ticket-service
+            - StripPrefix=2
 
         # Subscription Service Routes
         - id: subscription-service
-          uri: http://subscription-service-app:8084
+          uri: http://subscription-service:8084
           predicates:
-            - Path=/api/v1/subscriptions/**,/api/v1/subscription-usage/**
+            - Path=/api/v1/subscriptions/**
           filters:
-            - JwtAuthenticationFilter
-            - name: CircuitBreaker
-              args:
-                name: subscriptionServiceCircuitBreaker
-                fallbackUri: forward:/fallback/subscription-service
+            - StripPrefix=2
 
-        # Notification Service Routes (Future)
-        - id: notification-service
-          uri: http://localhost:8086
+        # Route Service Routes
+        - id: route-service-routes
+          uri: http://route-service:8085
           predicates:
-            - Path=/api/v1/notifications/**
+            - Path=/api/v1/routes/**
           filters:
-            - JwtAuthenticationFilter
-            - name: CircuitBreaker
-              args:
-                name: notificationServiceCircuitBreaker
-                fallbackUri: forward:/fallback/notification-service
+            - StripPrefix=0
 
-      # Global CORS Configuration
+        - id: route-service-stops
+          uri: http://route-service:8085
+          predicates:
+            - Path=/api/v1/stops/**
+          filters:
+            - StripPrefix=0
+
+        - id: route-service-departures
+          uri: http://route-service:8085
+          predicates:
+            - Path=/api/v1/departures/**
+          filters:
+            - StripPrefix=0
+
+        - id: route-service-paths
+          uri: http://route-service:8085
+          predicates:
+            - Path=/api/v1/paths/**
+          filters:
+            - StripPrefix=0
+
+        # Bus Geolocation Service Routes
+        - id: geolocation-service-buses
+          uri: http://bus-geolocation-service:8086
+          predicates:
+            - Path=/api/v1/buses/**
+          filters:
+            - StripPrefix=0
+
+        - id: geolocation-service-locations
+          uri: http://bus-geolocation-service:8086
+          predicates:
+            - Path=/api/v1/locations/**
+          filters:
+            - StripPrefix=0
+
+        - id: geolocation-service-alerts
+          uri: http://bus-geolocation-service:8086
+          predicates:
+            - Path=/api/v1/alerts/**
+          filters:
+            - StripPrefix=0
+
+        # WebSocket for Bus Geolocation
+        - id: geolocation-websocket
+          uri: ws://bus-geolocation-service:8086
+          predicates:
+            - Path=/api/v1/ws/**
+          filters:
+            - StripPrefix=0
+
       globalcors:
-        corsConfigurations:
+        cors-configurations:
           '[/**]':
-            allowedOrigins: "*"
+            allowedOriginPatterns: "*"
             allowedMethods:
               - GET
               - POST
               - PUT
               - DELETE
-              - PATCH
               - OPTIONS
             allowedHeaders: "*"
-            exposedHeaders:
-              - Authorization
-              - Content-Type
+            allowCredentials: true
+            maxAge: 3600
 
-      # Default filters for all routes
       default-filters:
-        - name: Retry
-          args:
-            retries: 3
-            statuses: BAD_GATEWAY,GATEWAY_TIMEOUT
-            methods: GET,POST,PUT,DELETE
-            backoff:
-              firstBackoff: 50ms
-              maxBackoff: 500ms
-              factor: 2
-              basedOnPreviousValue: true
-        - name: RequestRateLimiter
-          args:
-            redis-rate-limiter.replenishRate: 100
-            redis-rate-limiter.burstCapacity: 200
-            redis-rate-limiter.requestedTokens: 1
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
 
-      # Circuit Breaker Configuration
-      httpclient:
-        connect-timeout: 3000
-        response-timeout: 5s
+  # Redis for rate limiting
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:redis}
+      port: ${SPRING_REDIS_PORT:6379}
+      timeout: 2000ms
 
-# JWT Configuration (Should match User Service)
-jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-
-# Resilience4j Circuit Breaker Configuration
-resilience4j:
-  circuitbreaker:
-    instances:
-      userServiceCircuitBreaker:
-        registerHealthIndicator: true
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        permittedNumberOfCallsInHalfOpenState: 3
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-        waitDurationInOpenState: 10s
-        failureRateThreshold: 50
-        eventConsumerBufferSize: 10
-      busServiceCircuitBreaker:
-        registerHealthIndicator: true
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        permittedNumberOfCallsInHalfOpenState: 3
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-        waitDurationInOpenState: 10s
-        failureRateThreshold: 50
-      ticketServiceCircuitBreaker:
-        registerHealthIndicator: true
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        permittedNumberOfCallsInHalfOpenState: 3
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-        waitDurationInOpenState: 10s
-        failureRateThreshold: 50
-      notificationServiceCircuitBreaker:
-        registerHealthIndicator: true
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        permittedNumberOfCallsInHalfOpenState: 3
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-        waitDurationInOpenState: 10s
-        failureRateThreshold: 50
-      subscriptionServiceCircuitBreaker:
-        registerHealthIndicator: true
-        slidingWindowSize: 10
-        minimumNumberOfCalls: 5
-        permittedNumberOfCallsInHalfOpenState: 3
-        automaticTransitionFromOpenToHalfOpenEnabled: true
-        waitDurationInOpenState: 10s
-        failureRateThreshold: 50
-
-  timelimiter:
-    instances:
-      userServiceCircuitBreaker:
-        timeoutDuration: 5s
-      busServiceCircuitBreaker:
-        timeoutDuration: 5s
-      ticketServiceCircuitBreaker:
-        timeoutDuration: 5s
-      notificationServiceCircuitBreaker:
-        timeoutDuration: 5s
-
-# Logging Configuration
+# Logging
 logging:
   level:
     root: INFO
-    com.bustransport.gateway: DEBUG
     org.springframework.cloud.gateway: DEBUG
-    org.springframework.web.reactive: DEBUG
+    org.springframework.web: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
-  file:
-    name: logs/api-gateway.log
-    max-size: 10MB
-    max-history: 10
 
-# Actuator Configuration
+# Actuator
 management:
   endpoints:
     web:
       exposure:
         include: health,info,metrics,prometheus,gateway
-      base-path: /actuator
   endpoint:
     health:
       show-details: always
-      probes:
-        enabled: true
     gateway:
       enabled: true
-  metrics:
-    export:
-      prometheus:
-        enabled: true
-  health:
-    circuitbreakers:
-      enabled: true
-    ratelimiters:
-      enabled: true
-
-# SpringDoc OpenAPI Configuration
-springdoc:
-  api-docs:
-    path: /api-docs
-  swagger-ui:
-    path: /swagger-ui.html
-    urls:
-      - name: User Service
-        url: http://localhost:8081/api/v1/api-docs
-      - name: Ticket Service
-        url: http://localhost:8083/api-docs

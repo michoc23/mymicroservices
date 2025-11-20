@@ -9,6 +9,9 @@ COPY pom.xml ./
 COPY api-gateway/pom.xml ./api-gateway/
 COPY User/pom.xml ./User/
 COPY Ticket/pom.xml ./Ticket/
+COPY Subscription/pom.xml ./Subscription/
+COPY Route/pom.xml ./Route/
+COPY BusGeolocation/pom.xml ./BusGeolocation/
 
 # Download dependencies
 RUN mvn dependency:go-offline -B -pl api-gateway -am

@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/refunds")
+@RequestMapping("/api/v1/refunds")
 @RequiredArgsConstructor
 @Tag(name = "Refund", description = "Refund processing APIs")
 @SecurityRequirement(name = "bearer-jwt")

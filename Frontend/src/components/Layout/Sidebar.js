@@ -17,6 +17,8 @@ import {
   ConfirmationNumber,
   CardMembership,
   Route,
+  Map,
+  Navigation,
   Person,
   Analytics,
   Support,
@@ -50,6 +52,19 @@ const menuItems = [
     icon: <Route />,
     path: '/routes',
     description: 'Find your journey'
+  },
+  {
+    text: 'Live Map',
+    icon: <Map />,
+    path: '/live-map',
+    description: 'Real-time bus tracking',
+    badge: 'Live'
+  },
+  {
+    text: 'Trip Planner',
+    icon: <Navigation />,
+    path: '/trip-planner',
+    description: 'Plan your journey'
   },
 ];
 

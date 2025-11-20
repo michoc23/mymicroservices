@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/payments")
+@RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
 @Tag(name = "Payment", description = "Payment processing APIs")
 @SecurityRequirement(name = "bearer-jwt")

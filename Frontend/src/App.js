@@ -14,8 +14,11 @@ import TicketsPage from './pages/Tickets/TicketsPage';
 import SubscriptionsPage from './pages/Subscriptions/SubscriptionsPage';
 import ProfilePage from './pages/Profile/ProfilePage';
 import RoutesPage from './pages/Routes/RoutesPage';
+import LiveMapPage from './pages/LiveMap/LiveMapPage';
+import TripPlannerPage from './pages/TripPlanner/TripPlannerPage';
 import NotFoundPage from './pages/NotFound/NotFoundPage';
 
+// Routes updated to include Live Map and Trip Planner
 function App() {
   const { isAuthenticated, loading } = useAuth();
 
@@ -63,6 +66,8 @@ function App() {
           <Route path="tickets" element={<TicketsPage />} />
           <Route path="subscriptions" element={<SubscriptionsPage />} />
           <Route path="routes" element={<RoutesPage />} />
+          <Route path="live-map" element={<LiveMapPage />} />
+          <Route path="trip-planner" element={<TripPlannerPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
 

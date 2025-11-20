@@ -9,7 +9,7 @@ const logApiEvent = (message, data = null) => {
 
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: '/api/v1', // Use API Gateway proxy
+  baseURL: 'http://localhost:8082/api/v1', // Direct to API Gateway
   timeout: 15000, // Increased timeout to prevent premature failures
   headers: {
     'Content-Type': 'application/json',

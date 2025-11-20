@@ -34,14 +34,19 @@ export const AuthProvider = ({ children }) => {
             AuthLogger.log('Token valid, setting up user session');
             authService.setAuthToken(token);
             
-            // Get user info from token
-            setUser({
-              id: decodedToken.userId,
-              email: decodedToken.sub,
-              firstName: decodedToken.firstName,
-              lastName: decodedToken.lastName,
-              role: decodedToken.role,
-            });
+            // Restore cached user profile to preserve userId
+            const cachedUser = localStorage.getItem('user');
+            if (cachedUser) {
+              setUser(JSON.parse(cachedUser));
+            } else {
+              setUser({
+                id: decodedToken.userId,
+                email: decodedToken.sub,
+                firstName: decodedToken.firstName,
+                lastName: decodedToken.lastName,
+                role: decodedToken.role,
+              });
+            }
             
             // Start monitoring token
             AuthLogger.startMonitoring();
@@ -49,6 +54,7 @@ export const AuthProvider = ({ children }) => {
             // Token expired, remove it
             AuthLogger.log('Token expired during initialization');
             localStorage.removeItem('token');
+            localStorage.removeItem('user');
             authService.setAuthToken(null);
           }
         } else {
@@ -79,13 +85,15 @@ export const AuthProvider = ({ children }) => {
       authService.setAuthToken(token);
 
       // Set user data from the response
-      setUser({
+      const userPayload = {
         id: userId,
         email: userEmail,
-        firstName: firstName,
-        lastName: lastName,
-        role: role,
-      });
+        firstName,
+        lastName,
+        role,
+      };
+      setUser(userPayload);
+      localStorage.setItem('user', JSON.stringify(userPayload));
 
       AuthLogger.log('Login successful, starting monitoring');
       AuthLogger.startMonitoring();
@@ -121,6 +129,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     AuthLogger.log('Manual logout triggered');
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     authService.setAuthToken(null);
     setUser(null);
     toast.info('You have been logged out.');

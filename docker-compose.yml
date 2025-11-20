@@ -71,6 +71,50 @@ services:
       timeout: 5s
       retries: 5
 
+  # PostgreSQL Database for Route Service
+  postgres-route:
+    image: postgres:15-alpine
+    container_name: route-service-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: route_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5437:5432"
+    volumes:
+      - postgres_route_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # PostgreSQL Database for Geolocation Service
+  postgres-geolocation:
+    image: postgres:15-alpine
+    container_name: geolocation-service-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: geolocation_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5438:5432"
+    volumes:
+      - postgres_geolocation_data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # Redis for API Gateway Rate Limiting
   redis:
     image: redis:7-alpine
@@ -108,6 +152,8 @@ services:
       - postgres
       - postgres-ticket
       - postgres-subscription
+      - postgres-route
+      - postgres-geolocation
 
   # ========== Microservices ==========
 
@@ -149,7 +195,7 @@ services:
       SPRING_REDIS_PORT: 6379
       JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
     ports:
-      - "8082:8082"
+      - "8082:8080"
     networks:
       - microservices-network
     depends_on:
@@ -158,7 +204,7 @@ services:
       user-service:
         condition: service_started
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/actuator/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/actuator/health"]
       interval: 30s
       timeout: 3s
       start_period: 60s
@@ -214,6 +260,67 @@ services:
       start_period: 60s
       retries: 3
 
+  # Route Service
+  route-service:
+    build:
+      context: .
+      dockerfile: Route/Dockerfile
+    container_name: route-service-app
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-route:5432/route_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+    ports:
+      - "8085:8085"
+    networks:
+      - microservices-network
+    depends_on:
+      postgres-route:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8085/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 60s
+      retries: 3
+
+  # Bus Geolocation Service
+  bus-geolocation-service:
+    build:
+      context: .
+      dockerfile: BusGeolocation/Dockerfile
+    container_name: bus-geolocation-service-app
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-geolocation:5432/geolocation_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      SIMULATION_ENABLED: "true"
+    ports:
+      - "8086:8086"
+    networks:
+      - microservices-network
+    depends_on:
+      postgres-geolocation:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8086/actuator/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 60s
+      retries: 3
+
   # Frontend Application
   frontend:
     build:
@@ -244,6 +351,10 @@ volumes:
   postgres_ticket_data:
     driver: local
   postgres_subscription_data:
+    driver: local
+  postgres_route_data:
+    driver: local
+  postgres_geolocation_data:
     driver: local
   pgadmin_data:
     driver: local

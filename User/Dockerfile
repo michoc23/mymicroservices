@@ -10,6 +10,9 @@ COPY pom.xml .
 COPY User/pom.xml User/
 COPY api-gateway/pom.xml api-gateway/
 COPY Ticket/pom.xml Ticket/
+COPY Subscription/pom.xml Subscription/
+COPY Route/pom.xml Route/
+COPY BusGeolocation/pom.xml BusGeolocation/
 
 # Download dependencies (cached layer)
 RUN mvn -f User/pom.xml dependency:go-offline
