@@ -8,6 +8,9 @@ pipeline {
     }
     
     environment {
+        // Optional: Slack webhook URL for notifications (set in Jenkins job/env)
+        SLACK_WEBHOOK_URL = ""
+        
         // Docker Registry Configuration
         DOCKER_REGISTRY = credentials('docker-registry-url') // Configure in Jenkins credentials
         DOCKER_CREDENTIALS = credentials('docker-registry-credentials') // Docker Hub or private registry credentials
@@ -486,7 +489,15 @@ pipeline {
         success {
             echo 'Pipeline succeeded! 🎉'
             
-            // Send success notification
+            // Slack notification (optional if SLACK_WEBHOOK_URL is set)
+            sh '''
+                if [ -n "$SLACK_WEBHOOK_URL" ]; then
+                  curl -s -X POST -H 'Content-type: application/json' \
+                    --data '{"text":"✅ Build Success: '"${JOB_NAME}"' #'"${BUILD_NUMBER}"' (v'"${APP_VERSION}"') - '"${BUILD_URL}"'"}' "$SLACK_WEBHOOK_URL" >/dev/null || true
+                fi
+            '''
+            
+            // Email notification
             emailext (
                 subject: "✅ Build Success: ${env.JOB_NAME} - ${env.BUILD_NUMBER}",
                 body: """
@@ -504,7 +515,15 @@ pipeline {
         failure {
             echo 'Pipeline failed! ❌'
             
-            // Send failure notification
+            // Slack notification (optional if SLACK_WEBHOOK_URL is set)
+            sh '''
+                if [ -n "$SLACK_WEBHOOK_URL" ]; then
+                  curl -s -X POST -H 'Content-type: application/json' \
+                    --data '{"text":"❌ Build Failed: '"${JOB_NAME}"' #'"${BUILD_NUMBER}"' - '"${BUILD_URL}"'"}' "$SLACK_WEBHOOK_URL" >/dev/null || true
+                fi
+            '''
+            
+            // Email notification
             emailext (
                 subject: "❌ Build Failed: ${env.JOB_NAME} - ${env.BUILD_NUMBER}",
                 body: """
@@ -522,7 +541,15 @@ pipeline {
         unstable {
             echo 'Pipeline unstable! ⚠️'
             
-            // Send unstable notification
+            // Slack notification (optional if SLACK_WEBHOOK_URL is set)
+            sh '''
+                if [ -n "$SLACK_WEBHOOK_URL" ]; then
+                  curl -s -X POST -H 'Content-type: application/json' \
+                    --data '{"text":"⚠️ Build Unstable: '"${JOB_NAME}"' #'"${BUILD_NUMBER}"' - '"${BUILD_URL}"'"}' "$SLACK_WEBHOOK_URL" >/dev/null || true
+                fi
+            '''
+            
+            // Email notification
             emailext (
                 subject: "⚠️ Build Unstable: ${env.JOB_NAME} - ${env.BUILD_NUMBER}",
                 body: """

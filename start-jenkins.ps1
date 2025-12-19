@@ -38,6 +38,9 @@ function Show-Banner {
 "@ -ForegroundColor Cyan
 }
 
+# Compose command detection
+$ComposeCmd = if (Get-Command docker-compose -ErrorAction SilentlyContinue) { 'docker-compose' } else { 'docker compose' }
+
 # Check prerequisites
 function Test-Prerequisites {
     Write-Step "Checking prerequisites..."
@@ -50,8 +53,10 @@ function Test-Prerequisites {
 
     # Check Docker Compose
     if (!(Get-Command docker-compose -ErrorAction SilentlyContinue)) {
-        Write-Error "Docker Compose is not installed. Please install Docker Desktop first."
-        exit 1
+        if (-not (Get-Command docker compose -ErrorAction SilentlyContinue)) {
+            Write-Error "Docker Compose is not installed. Please install Docker Desktop first."
+            exit 1
+        }
     }
 
     # Check if Docker is running
@@ -99,11 +104,11 @@ function Start-Jenkins {
 
     # Build the custom Jenkins image
     Write-Info "Building custom Jenkins image with plugins..."
-    docker-compose -f docker-compose.jenkins.yml build --no-cache
+    & $ComposeCmd -f docker-compose.jenkins.yml build --no-cache
 
     # Start Jenkins services
     Write-Info "Starting Jenkins services..."
-    docker-compose -f docker-compose.jenkins.yml up -d
+    & $ComposeCmd -f docker-compose.jenkins.yml up -d
 
     Write-Success "Jenkins containers started"
 }
@@ -129,7 +134,7 @@ function Wait-ForJenkins {
 
         if ($attempt -eq $maxAttempts) {
             Write-Error "Jenkins failed to start within expected time"
-            Write-Info "Check logs with: docker-compose -f docker-compose.jenkins.yml logs jenkins"
+            Write-Info "Check logs with: $ComposeCmd -f docker-compose.jenkins.yml logs jenkins"
             exit 1
         }
 
@@ -235,13 +240,13 @@ function Stop-Jenkins {
 # Show Jenkins logs
 function Show-Logs {
     Write-Info "Following Jenkins logs (Ctrl+C to exit)..."
-    docker-compose -f docker-compose.jenkins.yml logs -f jenkins
+    & $ComposeCmd -f docker-compose.jenkins.yml logs -f jenkins
 }
 
 # Show Jenkins status
 function Show-Status {
     Write-Info "Jenkins container status:"
-    docker-compose -f docker-compose.jenkins.yml ps
+    & $ComposeCmd -f docker-compose.jenkins.yml ps
 
     Write-Host ""
     Write-Info "Jenkins accessibility:"
@@ -261,7 +266,7 @@ function Remove-JenkinsData {
 
     if ($confirm -eq "yes") {
         Write-Step "Cleaning Jenkins..."
-        docker-compose -f docker-compose.jenkins.yml down -v
+        & $ComposeCmd -f docker-compose.jenkins.yml down -v
 
         # Remove volumes
         $volumes = @("jenkins_microservices_data", "jenkins_maven_cache", "jenkins_npm_cache", "jenkins_docker_cache", "jenkins_agent_workdir")
