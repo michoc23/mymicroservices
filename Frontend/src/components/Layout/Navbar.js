@@ -21,6 +21,7 @@ import {
   Person,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import NotificationsMenu from '../Notifications/NotificationsMenu';
 
 const Navbar = ({ onSidebarToggle }) => {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -124,14 +125,7 @@ const Navbar = ({ onSidebarToggle }) => {
 
         {/* Right Side Icons */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          {/* Notifications */}
-          <Tooltip title="Notifications">
-            <IconButton color="inherit">
-              <Badge badgeContent={3} color="secondary">
-                <Notifications />
-              </Badge>
-            </IconButton>
-          </Tooltip>
+          <NotificationsMenu />
 
           {/* User Menu */}
           <Tooltip title="Account">

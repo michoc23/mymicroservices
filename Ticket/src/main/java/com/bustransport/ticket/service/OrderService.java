@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.bustransport.ticket.client.NotificationClient;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -33,6 +34,7 @@ public class OrderService {
     private final TicketRepository ticketRepository;
     private final OrderMapper orderMapper;
     private final QRCodeGenerator qrCodeGenerator;
+    private final NotificationClient notificationClient;
 
     @Transactional
     public OrderResponse createOrder(CreateOrderRequest request) {
@@ -111,6 +113,15 @@ public class OrderService {
         order = orderRepository.save(order);
 
         log.info("Order {} marked as paid", orderId);
+
+        // Create a server-side persistent notification for the user (best-effort)
+        try {
+            String title = "Order Paid";
+            String message = String.format("Your order %s has been paid and %d ticket(s) are now active.", order.getOrderNumber(), order.getTickets().size());
+            notificationClient.createNotification(order.getUserId(), title, message, "TICKET");
+        } catch (Exception e) {
+            log.warn("Failed to send notification for order {}: {}", orderId, e.getMessage());
+        }
 
         return orderMapper.toResponse(order);
     }

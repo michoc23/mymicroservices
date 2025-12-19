@@ -26,7 +26,8 @@ import {
   Search,
   DirectionsBus,
   Schedule,
-  Route as RouteIcon
+  Route as RouteIcon,
+  DirectionsWalk
 } from '@mui/icons-material';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
@@ -59,7 +60,7 @@ const TripPlannerPage = () => {
   const loadInitialData = async () => {
     try {
       setLoadingData(true);
-      
+
       // Load all stops
       const stopsResponse = await routeService.getAllStops();
       setStops(stopsResponse.data?.content || stopsResponse.data || []);
@@ -304,36 +305,48 @@ const TripPlannerPage = () => {
 
                         <Divider sx={{ my: 2 }} />
 
-                        {route.steps && route.steps.length > 0 ? (
+                        {route.segments && route.segments.length > 0 ? (
                           <List>
-                            {route.steps.map((step, stepIndex) => (
-                              <React.Fragment key={stepIndex}>
-                                <ListItem>
-                                  <DirectionsBus color="primary" sx={{ mr: 2 }} />
+                            {route.segments.map((segment, segIndex) => (
+                              <React.Fragment key={segIndex}>
+                                <ListItem alignItems="flex-start">
+                                  <Box sx={{ mr: 2, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    {segment.type === 'transit' ? (
+                                      <DirectionsBus sx={{ color: segment.routeColor || 'primary.main' }} />
+                                    ) : (
+                                      <DirectionsWalk color="action" />
+                                    )}
+                                    {segIndex < route.segments.length - 1 && (
+                                      <Box sx={{ width: '2px', height: '40px', bgcolor: 'divider', my: 1 }} />
+                                    )}
+                                  </Box>
                                   <ListItemText
                                     primary={
                                       <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                                        {step.routeName || `Route ${step.routeId}`}
+                                        {segment.type === 'transit' ?
+                                          `${segment.routeName || `Route ${segment.routeNumber}`}` :
+                                          'Walking'}
                                       </Typography>
                                     }
                                     secondary={
                                       <>
-                                        <Typography variant="body2" color="text.secondary">
-                                          From: {step.fromStop || fromStop.name}
+                                        <Typography variant="body2" color="text.primary" sx={{ fontWeight: 500 }}>
+                                          {segment.instructions}
                                         </Typography>
                                         <Typography variant="body2" color="text.secondary">
-                                          To: {step.toStop || toStop.name}
+                                          {segment.distance ? `${segment.distance.toFixed(2)} km` : ''} • {segment.duration} min
                                         </Typography>
-                                        {step.duration && (
-                                          <Typography variant="body2" color="text.secondary">
-                                            Duration: {step.duration} min
-                                          </Typography>
+                                        {segment.intermediateStops && segment.intermediateStops.length > 0 && (
+                                          <Box sx={{ mt: 1, pl: 1, borderLeft: '2px dashed', borderColor: 'divider' }}>
+                                            <Typography variant="caption" color="text.secondary">
+                                              Passing through {segment.intermediateStops.length} stops
+                                            </Typography>
+                                          </Box>
                                         )}
                                       </>
                                     }
                                   />
                                 </ListItem>
-                                {stepIndex < route.steps.length - 1 && <Divider variant="inset" component="li" />}
                               </React.Fragment>
                             ))}
                           </List>
@@ -396,7 +409,7 @@ const TripPlannerPage = () => {
                           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                         />
-                        
+
                         {/* Show all stops */}
                         {stops.map((stop) => (
                           <Marker
@@ -420,39 +433,40 @@ const TripPlannerPage = () => {
                         ))}
 
                         {/* Draw route from search results if available */}
-                        {searchResults && searchResults.segments && searchResults.segments.length > 0 && (
+                        {searchResults && (searchResults.segments || searchResults.routes?.[0]?.segments) && (
                           <>
-                            {searchResults.segments.map((segment, segIndex) => {
+                            {(searchResults.segments || searchResults.routes[0].segments).map((segment, segIndex) => {
                               if (!segment.path || segment.path.length === 0) return null;
-                              
-                              // Convert coordinates to Leaflet format [lat, lng]
+
                               const positions = segment.path.map(coord => [
                                 coord.lat || coord.latitude,
                                 coord.lon || coord.longitude
                               ]);
-                              
-                              // Style based on segment type
+
                               const isTransit = segment.type === 'transit';
-                              const color = isTransit ? '#1976d2' : '#66bb6a';
-                              const weight = isTransit ? 4 : 3;
-                              const opacity = isTransit ? 0.8 : 0.6;
-                              
+                              const color = isTransit ? (segment.routeColor || '#1976d2') : '#757575';
+                              const weight = isTransit ? 6 : 4;
+                              const opacity = isTransit ? 0.9 : 0.6;
+
                               return (
                                 <Polyline
                                   key={segIndex}
                                   positions={positions}
-                                  color={color}
-                                  weight={weight}
-                                  opacity={opacity}
-                                  lineCap="round"
-                                  lineJoin="round"
-                                  smoothFactor={1.0}
+                                  pathOptions={{
+                                    color: color,
+                                    weight: weight,
+                                    opacity: opacity,
+                                    lineCap: 'round',
+                                    lineJoin: 'round',
+                                    dashArray: isTransit ? null : '5, 10'
+                                  }}
+                                  smoothFactor={1}
                                 />
                               );
                             })}
                           </>
                         )}
-                        
+
                         {/* Fallback: Draw simple line between selected stops if no search results */}
                         {!searchResults && fromStop && toStop && (
                           <Polyline

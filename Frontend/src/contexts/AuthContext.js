@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import jwtDecode from 'jwt-decode';
 import authService from '../services/authService';
+import subscriptionService from '../services/subscriptionService';
+import notificationService from '../services/notificationService';
 import AuthLogger from '../utils/authLogger';
 
 const AuthContext = createContext();
@@ -94,6 +96,32 @@ export const AuthProvider = ({ children }) => {
       };
       setUser(userPayload);
       localStorage.setItem('user', JSON.stringify(userPayload));
+
+      // Check for subscriptions that are near expiry and notify the user
+      try {
+        const subsResp = await subscriptionService.getUserSubscriptions(userPayload.id, 0, 10);
+        const subscriptions = subsResp.data.content || subsResp.data || [];
+        const nearExpiry = subscriptions.filter(s => s.daysRemaining > 0 && s.daysRemaining <= 3);
+        if (nearExpiry.length > 0) {
+          nearExpiry.forEach(s => {
+            toast.warn(`Your subscription (id: ${s.id}) expires in ${s.daysRemaining} day(s).`);
+          });
+        }
+      } catch (err) {
+        AuthLogger.log('Subscription check failed:', err.message || err);
+      }
+
+      // Create a welcome / login notification in persistent store
+      try {
+        await notificationService.createNotification({
+          userId: userPayload.id,
+          title: 'Login Successful',
+          message: `Welcome back, ${userPayload.firstName || userPayload.email}`,
+          type: 'AUTH'
+        });
+      } catch (err) {
+        AuthLogger.log('Failed to create login notification:', err.message || err);
+      }
 
       AuthLogger.log('Login successful, starting monitoring');
       AuthLogger.startMonitoring();

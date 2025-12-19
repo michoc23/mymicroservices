@@ -1,5 +1,6 @@
 package com.bustransport.subscription.service;
 
+import com.bustransport.subscription.client.NotificationClient;
 import com.bustransport.subscription.dto.request.CreateSubscriptionRequest;
 import com.bustransport.subscription.dto.request.UpdateSubscriptionRequest;
 import com.bustransport.subscription.dto.response.SubscriptionResponse;
@@ -30,6 +31,7 @@ public class SubscriptionService {
 
     private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionMapper subscriptionMapper;
+    private final NotificationClient notificationClient;
 
     // Pricing constants
     private static final BigDecimal MONTHLY_PRICE = new BigDecimal("29.99");
@@ -90,6 +92,16 @@ public class SubscriptionService {
         Subscription savedSubscription = subscriptionRepository.save(subscription);
         log.info("Created subscription with id: {} for user: {}", savedSubscription.getId(), request.getUserId());
 
+        // Send notification
+        String typeLabel = request.getSubscriptionType().toString();
+        String message = String.format("You have successfully subscribed to %s plan. Your subscription is now active.", typeLabel);
+        notificationClient.createNotification(
+                savedSubscription.getUserId(),
+                "Subscription Activated",
+                message,
+                "SUBSCRIPTION"
+        );
+
         return subscriptionMapper.toResponse(savedSubscription);
     }
 
@@ -122,6 +134,17 @@ public class SubscriptionService {
         subscription.renew();
         Subscription renewedSubscription = subscriptionRepository.save(subscription);
         log.info("Renewed subscription: {}", id);
+
+        // Send notification
+        String typeLabel = subscription.getSubscriptionType().toString();
+        String message = String.format("Your %s subscription has been successfully renewed and is now active until %s.", 
+                typeLabel, renewedSubscription.getEndDate());
+        notificationClient.createNotification(
+                renewedSubscription.getUserId(),
+                "Subscription Renewed",
+                message,
+                "SUBSCRIPTION"
+        );
 
         return subscriptionMapper.toResponse(renewedSubscription);
     }

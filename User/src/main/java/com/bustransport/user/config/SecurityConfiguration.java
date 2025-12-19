@@ -53,6 +53,8 @@ public class SecurityConfiguration {
                                 "/api/v1/",
                                 "/api/v1/auth/**", // All auth endpoints
                                 "/auth/**", // Alternative path
+                                "/api/v1/notifications/**", // Allow internal services to create notifications via gateway
+                                "/notifications/**", // Allow internal services to create notifications directly
                                 "/api-docs/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
