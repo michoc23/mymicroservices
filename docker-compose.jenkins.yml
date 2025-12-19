@@ -8,9 +8,16 @@ services:
       - "50000:50000"
     environment:
       - JAVA_OPTS=-Djenkins.install.runSetupWizard=false
+      - CASC_JENKINS_CONFIG=/var/jenkins_home/casc/jenkins.yaml
+      - DOCKER_REGISTRY_URL=
+      - DOCKER_REGISTRY_USER=
+      - DOCKER_REGISTRY_PASS=
     volumes:
       - jenkins_data:/var/jenkins_home
       - /var/run/docker.sock:/var/run/docker.sock
+      - "C:/Users/saad/soa/mymicroservices:/workspace/mymicroservices"
+      - "./jenkins-casc:/var/jenkins_home/casc"
+      - "./jenkins-init/init.groovy.d:/var/jenkins_home/init.groovy.d"
     restart: unless-stopped
 volumes:
   jenkins_data:

@@ -1,0 +1,45 @@
+jenkins:
+  systemMessage: "Configured by JCasC for transport microservices"
+  numExecutors: 2
+  remotingSecurity:
+    enabled: true
+  mode: NORMAL
+unclassified:
+  location:
+    url: "http://localhost:9090/"
+  mavenGlobalConfig:
+    installations:
+      - name: "Maven-3.9.0"
+        properties:
+          - installSource:
+              installers:
+                - maven:
+                    id: "3.9.0"
+  nodeJS:
+    installations:
+      - name: "NodeJS-18"
+        properties:
+          - installSource:
+              installers:
+                - nodeJSInstaller:
+                    id: "18.20.4"
+  dockerTool:
+    installations:
+      - name: "Docker"
+        properties: []
+credentials:
+  system:
+    domainCredentials:
+      - domain: {}
+        credentials:
+          - string:
+              scope: GLOBAL
+              id: "docker-registry-url"
+              secret: "${DOCKER_REGISTRY_URL:-index.docker.io}"
+              description: "Docker registry base URL"
+          - usernamePassword:
+              scope: GLOBAL
+              id: "docker-registry-credentials"
+              username: "${DOCKER_REGISTRY_USER:-username}"
+              password: "${DOCKER_REGISTRY_PASS:-password}"
+              description: "Docker registry credentials"
