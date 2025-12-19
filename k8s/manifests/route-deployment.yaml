@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: route-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: route-service
+  template:
+    metadata:
+      labels:
+        app: route-service
+    spec:
+      containers:
+        - name: route-service
+          image: docker.io/your-organization/route-service:latest
+          ports:
+            - containerPort: 8085
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: k8s
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: route-service
+spec:
+  selector:
+    app: route-service
+  ports:
+    - port: 8085
+      targetPort: 8085
+      protocol: TCP

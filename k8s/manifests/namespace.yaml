@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: transport-staging
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: transport-prod

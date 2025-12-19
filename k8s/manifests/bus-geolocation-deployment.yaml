@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bus-geolocation-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bus-geolocation-service
+  template:
+    metadata:
+      labels:
+        app: bus-geolocation-service
+    spec:
+      containers:
+        - name: bus-geolocation-service
+          image: docker.io/your-organization/bus-geolocation-service:latest
+          ports:
+            - containerPort: 8086
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: k8s
+            - name: SIMULATION_ENABLED
+              value: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bus-geolocation-service
+spec:
+  selector:
+    app: bus-geolocation-service
+  ports:
+    - port: 8086
+      targetPort: 8086
+      protocol: TCP

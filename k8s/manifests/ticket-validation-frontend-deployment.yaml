@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticket-validation-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ticket-validation-frontend
+  template:
+    metadata:
+      labels:
+        app: ticket-validation-frontend
+    spec:
+      containers:
+        - name: ticket-validation-frontend
+          image: docker.io/your-organization/ticket-validation-frontend:latest
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ticket-validation-frontend
+spec:
+  selector:
+    app: ticket-validation-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
