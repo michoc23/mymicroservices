@@ -17,7 +17,7 @@ public class OptimalPathResponse {
     private Integer totalDuration; // in minutes
     private List<PathSegment> segments;
     private String mapPolyline;
-    
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -26,14 +26,16 @@ public class OptimalPathResponse {
         private String type; // walk, transit
         private String routeNumber;
         private String routeName;
+        private String routeColor;
         private String fromStopName;
         private String toStopName;
+        private List<String> intermediateStops;
         private BigDecimal distance;
         private Integer duration;
         private String instructions;
         private List<Coordinate> path;
     }
-    
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -43,4 +45,3 @@ public class OptimalPathResponse {
         private BigDecimal lon;
     }
 }
-

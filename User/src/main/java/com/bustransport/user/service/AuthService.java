@@ -62,12 +62,15 @@ public class AuthService {
             case ADMIN:
                 user = createAdmin(request);
                 break;
+            case CONTROLLER:
+                user = createController(request);
+                break;
             default:
                 throw new BadRequestException("Invalid role: " + request.getRole());
         }
 
-        // Generate tokens
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        // Generate tokens with userId
+        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name(), user.getId());
         String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
 
         log.info("User registered successfully: {}", user.getEmail());
@@ -105,7 +108,8 @@ public class AuthService {
         }
 
         if (driverRepository.existsByLicenseNumber(request.getLicenseNumber())) {
-            throw new DuplicateResourceException("Driver with license number " + request.getLicenseNumber() + " already exists");
+            throw new DuplicateResourceException(
+                    "Driver with license number " + request.getLicenseNumber() + " already exists");
         }
 
         Driver driver = Driver.builder()
@@ -138,6 +142,21 @@ public class AuthService {
         return userRepository.save(admin);
     }
 
+    private User createController(RegisterRequest request) {
+        // Controllers are generic users with the CONTROLLER role
+        User controller = User.builder()
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .email(request.getEmail())
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .phoneNumber(request.getPhoneNumber())
+                .role(UserRole.CONTROLLER)
+                .isActive(true)
+                .build();
+
+        return userRepository.save(controller);
+    }
+
     public AuthResponse login(LoginRequest request) {
         log.info("User login attempt: {}", request.getEmail());
 
@@ -145,9 +164,7 @@ public class AuthService {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),
-                        request.getPassword()
-                )
-        );
+                        request.getPassword()));
 
         // Find user
         User user = userRepository.findByEmail(request.getEmail())
@@ -157,8 +174,8 @@ public class AuthService {
         user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
-        // Generate tokens
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        // Generate tokens with userId
+        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name(), user.getId());
         String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
 
         log.info("User logged in successfully: {}", user.getEmail());
@@ -184,7 +201,7 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new BadRequestException("User not found"));
 
-        String newToken = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        String newToken = jwtUtil.generateToken(user.getEmail(), user.getRole().name(), user.getId());
 
         return AuthResponse.builder()
                 .token(newToken)

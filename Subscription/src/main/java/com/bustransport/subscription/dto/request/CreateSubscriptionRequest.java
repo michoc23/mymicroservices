@@ -21,4 +21,7 @@ public class CreateSubscriptionRequest {
 
     @Builder.Default
     private Boolean autoRenewal = false;
+
+    @jakarta.validation.constraints.Email(message = "Email should be valid")
+    private String email;
 }

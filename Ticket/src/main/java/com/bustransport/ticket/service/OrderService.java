@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.bustransport.ticket.client.NotificationClient;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -33,6 +34,7 @@ public class OrderService {
     private final TicketRepository ticketRepository;
     private final OrderMapper orderMapper;
     private final QRCodeGenerator qrCodeGenerator;
+    private final NotificationClient notificationClient;
 
     @Transactional
     public OrderResponse createOrder(CreateOrderRequest request) {
@@ -44,11 +46,11 @@ public class OrderService {
 
         // Create order
         Order order = Order.builder()
-            .userId(request.getUserId())
-            .orderNumber(orderNumber)
-            .totalAmount(totalAmount)
-            .status(OrderStatus.PENDING)
-            .build();
+                .userId(request.getUserId())
+                .orderNumber(orderNumber)
+                .totalAmount(totalAmount)
+                .status(OrderStatus.PENDING)
+                .build();
 
         // Create tickets with temporary QR codes
         for (CreateTicketRequest ticketRequest : request.getTickets()) {
@@ -77,28 +79,28 @@ public class OrderService {
     @Transactional(readOnly = true)
     public OrderResponse getOrderById(Long id) {
         Order order = orderRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + id));
         return orderMapper.toResponse(order);
     }
 
     @Transactional(readOnly = true)
     public OrderResponse getOrderByOrderNumber(String orderNumber) {
         Order order = orderRepository.findByOrderNumber(orderNumber)
-            .orElseThrow(() -> new ResourceNotFoundException("Order not found with order number: " + orderNumber));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with order number: " + orderNumber));
         return orderMapper.toResponse(order);
     }
 
     @Transactional(readOnly = true)
     public List<OrderResponse> getOrdersByUserId(Long userId) {
         return orderRepository.findByUserId(userId).stream()
-            .map(orderMapper::toResponse)
-            .collect(Collectors.toList());
+                .map(orderMapper::toResponse)
+                .collect(Collectors.toList());
     }
 
     @Transactional
     public OrderResponse markOrderAsPaid(Long orderId) {
         Order order = orderRepository.findById(orderId)
-            .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
 
         order.setStatus(OrderStatus.PAID);
 
@@ -112,13 +114,22 @@ public class OrderService {
 
         log.info("Order {} marked as paid", orderId);
 
+        // Create a server-side persistent notification for the user (best-effort)
+        try {
+            String title = "Order Paid";
+            String message = String.format("Your order %s has been paid and %d ticket(s) are now active.", order.getOrderNumber(), order.getTickets().size());
+            notificationClient.createNotification(order.getUserId(), title, message, "TICKET");
+        } catch (Exception e) {
+            log.warn("Failed to send notification for order {}: {}", orderId, e.getMessage());
+        }
+
         return orderMapper.toResponse(order);
     }
 
     @Transactional
     public OrderResponse cancelOrder(Long orderId) {
         Order order = orderRepository.findById(orderId)
-            .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with id: " + orderId));
 
         if (order.getStatus() == OrderStatus.PAID) {
             throw new IllegalStateException("Cannot cancel paid order. Please request a refund instead.");
@@ -177,23 +188,23 @@ public class OrderService {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime validFrom = request.getValidFrom() != null ? request.getValidFrom() : now;
         LocalDateTime validUntil = request.getValidUntil() != null
-            ? request.getValidUntil()
-            : calculateDefaultValidUntil(validFrom, request.getTicketType());
+                ? request.getValidUntil()
+                : calculateDefaultValidUntil(validFrom, request.getTicketType());
 
         return Ticket.builder()
-            .userId(userId)
-            .ticketType(request.getTicketType())
-            .price(price)
-            .purchaseDate(now)
-            .validFrom(validFrom)
-            .validUntil(validUntil)
-            .status(TicketStatus.ACTIVE)
-            .usageCount(0)
-            .maxUsage(maxUsage)
-            .routeId(request.getRouteId())
-            .scheduleId(request.getScheduleId())
-            .passengerName(request.getPassengerName())
-            .build();
+                .userId(userId)
+                .ticketType(request.getTicketType())
+                .price(price)
+                .purchaseDate(now)
+                .validFrom(validFrom)
+                .validUntil(validUntil)
+                .status(TicketStatus.ACTIVE)
+                .usageCount(0)
+                .maxUsage(maxUsage)
+                .routeId(request.getRouteId())
+                .scheduleId(request.getScheduleId())
+                .passengerName(request.getPassengerName())
+                .build();
     }
 
     private LocalDateTime calculateDefaultValidUntil(LocalDateTime validFrom, TicketType ticketType) {

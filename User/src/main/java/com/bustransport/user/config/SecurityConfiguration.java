@@ -18,6 +18,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -50,8 +51,10 @@ public class SecurityConfiguration {
                                 "/",
                                 "/api/v1",
                                 "/api/v1/",
-                                "/api/v1/auth/**",           // All auth endpoints
-                                "/auth/**",                  // Alternative path
+                                "/api/v1/auth/**", // All auth endpoints
+                                "/auth/**", // Alternative path
+                                "/api/v1/notifications/**", // Allow internal services to create notifications via gateway
+                                "/notifications/**", // Allow internal services to create notifications directly
                                 "/api-docs/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
@@ -60,22 +63,21 @@ public class SecurityConfiguration {
                                 "/webjars/**",
                                 "/actuator/**",
                                 "/actuator/health/**",
-                                "/error"
-                        ).permitAll()
+                                "/error")
+                        .permitAll()
 
                         // Role-based endpoints
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/drivers/**").hasRole("DRIVER")
                         .requestMatchers("/api/v1/passengers/**").hasRole("PASSENGER")
+                        .requestMatchers("/api/v1/controller/**").hasRole("CONTROLLER")
 
                         // All other requests require authentication
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
 
                 // Stateless session (JWT-based)
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 // Authentication provider
                 .authenticationProvider(authenticationProvider())
@@ -95,8 +97,7 @@ public class SecurityConfiguration {
 
         // Allow all HTTP methods
         configuration.setAllowedMethods(Arrays.asList(
-                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"
-        ));
+                "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
         // Allow all headers
         configuration.setAllowedHeaders(List.of("*"));
@@ -125,5 +126,10 @@ public class SecurityConfiguration {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
     }
 }

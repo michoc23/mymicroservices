@@ -22,4 +22,7 @@ public class CreateOrderRequest {
     @NotEmpty(message = "At least one ticket is required")
     @Valid
     private List<CreateTicketRequest> tickets;
+
+    @jakarta.validation.constraints.Email(message = "Email should be valid")
+    private String email;
 }

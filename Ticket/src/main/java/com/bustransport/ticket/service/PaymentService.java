@@ -46,13 +46,14 @@ public class PaymentService {
             throw new PaymentFailedException("Payment amount does not match order total");
         }
 
-        // Create payment
+        // Create payment (set paymentDate immediately to satisfy NOT NULL DB constraint)
         Payment payment = Payment.builder()
             .order(order)
             .userId(request.getUserId())
             .amount(request.getAmount())
             .paymentMethod(request.getPaymentMethod())
             .status(PaymentStatus.PENDING)
+            .paymentDate(LocalDateTime.now())
             .currency(request.getCurrency() != null ? request.getCurrency() : "USD")
             .build();
 

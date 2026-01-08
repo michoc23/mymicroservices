@@ -80,8 +80,8 @@ public class Ticket {
     // Business logic methods
     public boolean isValid() {
         return status == TicketStatus.ACTIVE
-            && LocalDateTime.now().isBefore(validUntil)
-            && usageCount < maxUsage;
+                && !LocalDateTime.now().isAfter(validUntil)
+                && usageCount < maxUsage;
     }
 
     public void use() {
@@ -103,7 +103,7 @@ public class Ticket {
 
     public boolean canBeCancelled() {
         return status == TicketStatus.ACTIVE
-            && usageCount == 0
-            && LocalDateTime.now().isBefore(validFrom.minusHours(2));
+                && usageCount == 0
+                && LocalDateTime.now().isBefore(validFrom.minusHours(2));
     }
 }

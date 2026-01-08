@@ -58,11 +58,35 @@ public class JwtUtil {
         return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
 
-    public String generateToken(String username, String role) {
+    public String generateToken(String username, String role, Long userId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("role", role);
         claims.put("roles", Arrays.asList(role)); // Add roles array for Gateway compatibility
+        claims.put("userId", userId); // Add userId to claims
         return createToken(claims, username, expiration);
+    }
+
+    public String generateToken(String username, String role) {
+        // Backward compatibility - use without userId (will be null)
+        return generateToken(username, role, null);
+    }
+
+    public Long extractUserId(String token) {
+        Claims claims = extractAllClaims(token);
+        Object userIdObj = claims.get("userId");
+        if (userIdObj == null) {
+            return null;
+        }
+        if (userIdObj instanceof Long) {
+            return (Long) userIdObj;
+        }
+        if (userIdObj instanceof Integer) {
+            return ((Integer) userIdObj).longValue();
+        }
+        if (userIdObj instanceof Number) {
+            return ((Number) userIdObj).longValue();
+        }
+        return null;
     }
 
     public String generateRefreshToken(String username) {

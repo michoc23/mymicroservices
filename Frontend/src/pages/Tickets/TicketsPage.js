@@ -36,6 +36,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import ticketService from '../../services/ticketService';
+import notificationService from '../../services/notificationService';
 import LoadingSpinner from '../../components/Common/LoadingSpinner';
 import { QRCodeCanvas } from 'qrcode.react';
 import jsPDF from 'jspdf';
@@ -252,6 +253,17 @@ const TicketsPage = () => {
       // Create the order
       await ticketService.createOrder(pendingOrder);
       toast.success('Payment successful! Ticket purchased.');
+
+      try {
+        await notificationService.createNotification({
+          userId: user.id,
+          title: 'Ticket Purchased',
+          message: `You purchased ${pendingOrder.ticketTypeName} x${pendingOrder.tickets.length}`,
+          type: 'TICKET'
+        });
+      } catch (err) {
+        console.error('Failed to create ticket notification', err);
+      }
       
       // Refresh tickets and orders
       const [ticketsResponse, ordersResponse] = await Promise.allSettled([
@@ -283,6 +295,17 @@ const TicketsPage = () => {
       // Create the order after successful PayPal payment
       await ticketService.createOrder(pendingOrder);
       toast.success('Payment successful! Ticket purchased.');
+
+      try {
+        await notificationService.createNotification({
+          userId: user.id,
+          title: 'Ticket Purchased',
+          message: `You purchased ${pendingOrder.ticketTypeName} x${pendingOrder.tickets.length}`,
+          type: 'TICKET'
+        });
+      } catch (err) {
+        console.error('Failed to create ticket notification', err);
+      }
       
       // Refresh tickets and orders
       const [ticketsResponse, ordersResponse] = await Promise.allSettled([

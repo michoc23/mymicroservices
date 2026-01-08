@@ -31,63 +31,78 @@ public class TicketService {
     @Transactional(readOnly = true)
     public TicketResponse getTicketById(Long id) {
         Ticket ticket = ticketRepository.findById(id)
-            .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with id: " + id));
         return ticketMapper.toResponse(ticket);
     }
 
     @Transactional(readOnly = true)
     public TicketResponse getTicketByQrCode(String qrCode) {
         Ticket ticket = ticketRepository.findByQrCode(qrCode)
-            .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with QR code: " + qrCode));
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with QR code: " + qrCode));
         return ticketMapper.toResponse(ticket);
     }
 
     @Transactional(readOnly = true)
     public List<TicketResponse> getTicketsByUserId(Long userId) {
         return ticketRepository.findByUserId(userId).stream()
-            .map(ticketMapper::toResponse)
-            .collect(Collectors.toList());
+                .map(ticketMapper::toResponse)
+                .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<TicketResponse> getActiveTicketsByUserId(Long userId) {
         return ticketRepository.findActiveTicketsByUserId(userId, LocalDateTime.now()).stream()
-            .map(ticketMapper::toResponse)
-            .collect(Collectors.toList());
+                .map(ticketMapper::toResponse)
+                .collect(Collectors.toList());
     }
 
     @Transactional
     public TicketValidationResponse validateAndUseTicket(ValidateTicketRequest request) {
         Ticket ticket = ticketRepository.findByQrCode(request.getQrCode())
-            .orElseThrow(() -> new InvalidTicketException("Invalid QR code"));
+                .orElseThrow(() -> new InvalidTicketException("Invalid QR code"));
 
         // Validate route
         if (!ticket.getRouteId().equals(request.getRouteId())) {
             return TicketValidationResponse.builder()
-                .valid(false)
-                .message("Ticket is not valid for this route")
-                .ticket(ticketMapper.toResponse(ticket))
-                .build();
+                    .valid(false)
+                    .message("Ticket is not valid for this route")
+                    .ticket(ticketMapper.toResponse(ticket))
+                    .build();
         }
 
         // Validate schedule if provided
         if (request.getScheduleId() != null && ticket.getScheduleId() != null
-            && !ticket.getScheduleId().equals(request.getScheduleId())) {
+                && !ticket.getScheduleId().equals(request.getScheduleId())) {
             return TicketValidationResponse.builder()
-                .valid(false)
-                .message("Ticket is not valid for this schedule")
-                .ticket(ticketMapper.toResponse(ticket))
-                .build();
+                    .valid(false)
+                    .message("Ticket is not valid for this schedule")
+                    .ticket(ticketMapper.toResponse(ticket))
+                    .build();
         }
 
         // Check if ticket is valid
         if (!ticket.isValid()) {
             String message = getInvalidTicketMessage(ticket);
+
+            // Special case: If ticket is USED or reached max usage, but time is still valid
+            // allow it as "Already Validated" for inspection purposes
+            boolean isTimeValid = !LocalDateTime.now().isAfter(ticket.getValidUntil());
+            boolean isUsageInvalid = ticket.getStatus() == TicketStatus.USED
+                    || ticket.getUsageCount() >= ticket.getMaxUsage();
+
+            if (isTimeValid && isUsageInvalid) {
+                return TicketValidationResponse.builder()
+                        .valid(true)
+                        .message("Ticket already validated")
+                        .ticket(ticketMapper.toResponse(ticket))
+                        .build();
+            }
+
             return TicketValidationResponse.builder()
-                .valid(false)
-                .message(message)
-                .ticket(ticketMapper.toResponse(ticket))
-                .build();
+                    .valid(false)
+                    .message(message)
+                    .ticket(ticketMapper.toResponse(ticket))
+                    .build();
         }
 
         // Use the ticket
@@ -97,19 +112,20 @@ public class TicketService {
         log.info("Ticket {} used successfully", ticket.getQrCode());
 
         return TicketValidationResponse.builder()
-            .valid(true)
-            .message("Ticket validated and used successfully")
-            .ticket(ticketMapper.toResponse(ticket))
-            .build();
+                .valid(true)
+                .message("Ticket validated and used successfully")
+                .ticket(ticketMapper.toResponse(ticket))
+                .build();
     }
 
     @Transactional
     public TicketResponse cancelTicket(Long ticketId) {
         Ticket ticket = ticketRepository.findById(ticketId)
-            .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with id: " + ticketId));
+                .orElseThrow(() -> new ResourceNotFoundException("Ticket not found with id: " + ticketId));
 
         if (!ticket.canBeCancelled()) {
-            throw new InvalidTicketException("Ticket cannot be cancelled. It may have been used or cancellation period has expired");
+            throw new InvalidTicketException(
+                    "Ticket cannot be cancelled. It may have been used or cancellation period has expired");
         }
 
         ticket.cancel();
